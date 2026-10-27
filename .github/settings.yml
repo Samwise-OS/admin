@@ -1,0 +1,4 @@
+# Canonical repository defaults for Samwise-OS.
+# Safe-Settings reads this file from the admin repository default branch.
+repository:
+  delete_branch_on_merge: true
