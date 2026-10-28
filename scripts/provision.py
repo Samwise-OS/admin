@@ -42,7 +42,8 @@ def validate_workflow_source(item):
     if item.get("type") != "file" or item.get("path") != WORKFLOW_PATH:
         raise ValueError(f"Pinned admin revision must contain {WORKFLOW_PATH}")
     try:
-        content = base64.b64decode(item["content"], validate=True).decode("utf-8")
+        encoded = re.sub(r"\s+", "", item["content"])
+        content = base64.b64decode(encoded, validate=True).decode("utf-8")
     except (KeyError, ValueError, UnicodeDecodeError) as error:
         raise ValueError(f"Pinned {WORKFLOW_PATH} is not readable UTF-8") from error
     if "workflow_call:" not in content:

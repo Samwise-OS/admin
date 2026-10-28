@@ -99,9 +99,54 @@ def reconcile(config, request=gh):
                    for key, expected in config["organization_settings"].items()
                    if key not in ORG_API_WRITABLE_FIELDS and
                    final["organization_settings"].get("value", {}).get(key) != expected}
+    team_events = []
+    repository_inventory = request(f"orgs/{org}/repos?per_page=100")
+    if not repository_inventory.get("ok"):
+        raise RuntimeError("Cannot establish repository inventory for team grants")
+    repository_names = {repo["name"] for repo in repository_inventory["value"]}
+    for team_spec in config.get("teams", []):
+        slug = team_spec["slug"]
+        team_endpoint = f"orgs/{org}/teams/{slug}"
+        team_result = request(team_endpoint)
+        if not team_result.get("ok"):
+            team_result = request(f"orgs/{org}/teams", "POST", {
+                "name": team_spec["name"], "description": "Repository maintainers for Samwise-OS",
+                "privacy": team_spec["privacy"]})
+            if not team_result.get("ok"):
+                raise RuntimeError(f"Cannot ensure team {slug}: {team_result}")
+            team_events.append({"team": slug, "result": "created"})
+        else:
+            team_events.append({"team": slug, "result": "already-present"})
+        for username in team_spec["maintainers"]:
+            membership_endpoint = f"orgs/{org}/teams/{slug}/memberships/{username}"
+            membership = request(membership_endpoint)
+            if membership.get("ok") and membership.get("value", {}).get("role") == "maintainer":
+                team_events.append({"membership": f"{slug}/{username}", "result": "already-matching"})
+                continue
+            membership = request(membership_endpoint, "PUT", {"role": "maintainer"})
+            if not membership.get("ok"):
+                raise RuntimeError(f"Cannot ensure maintainer {username} in {slug}: {membership}")
+            team_events.append({"membership": f"{slug}/{username}", "result": "written"})
+        team_repositories = request(f"orgs/{org}/teams/{slug}/repos?per_page=100")
+        if not team_repositories.get("ok"):
+            raise RuntimeError(f"Cannot read team repository grants for {slug}")
+        grants = {repo["name"]: repo.get("permissions", {})
+                  for repo in team_repositories["value"]}
+        for repository, permission in team_spec["repository_grants"].items():
+            if repository not in repository_names:
+                team_events.append({"repository": repository, "team": slug, "result": "deferred-not-created"})
+                continue
+            if grants.get(repository, {}).get(permission) is True:
+                team_events.append({"repository": repository, "team": slug, "result": "already-matching"})
+                continue
+            grant_endpoint = f"orgs/{org}/teams/{slug}/repos/{org}/{repository}"
+            grant = request(grant_endpoint, "PUT", {"permission": permission})
+            if not grant.get("ok"):
+                raise RuntimeError(f"Cannot grant {permission} to {slug} on {repository}: {grant}")
+            team_events.append({"repository": repository, "team": slug, "result": "written"})
     return {"actor": actor["value"].get("login"), "organization_id": identity["value"]["id"],
             "planned_writes": writes, "events": events, "readback": final,
-            "matches": comparisons, "manual_only_drift": manual_only,
+            "matches": comparisons, "manual_only_drift": manual_only, "team_events": team_events,
             "complete": all(all(x.values()) for x in comparisons.values())}
 
 
@@ -121,7 +166,7 @@ def main():
         print(json.dumps(plan(config, org["value"], current), indent=2))
         return 0
     result = reconcile(config)
-    print(json.dumps({k: result[k] for k in ("actor", "organization_id", "planned_writes", "events", "matches", "manual_only_drift", "complete")}, indent=2))
+    print(json.dumps({k: result[k] for k in ("actor", "organization_id", "planned_writes", "events", "matches", "manual_only_drift", "team_events", "complete")}, indent=2))
     return 0 if result["complete"] else 2
 
 

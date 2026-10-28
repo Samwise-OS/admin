@@ -23,15 +23,15 @@ has two writers.
   actions and patterns, and require full-SHA pins. Workflow tokens remain read-only and
   cannot approve pull requests.
 - The `Maintainers` team exists with `Samwise-x` as maintainer and `maintain` access to
-  `admin`. Grants for `.github`, `repository-template` and `baseline-canary` are
-  declarative and deferred until those repositories exist.
+  `admin`, `.github`, `repository-template` and `baseline-canary`. Grants are applied
+  automatically by a later reconciliation once a declared repository exists.
 - The `admin/governance` environment exists with an exact `main` branch deployment
   policy, no required reviewers, and no protected-branch-only policy. It is a
   configuration fact; privileged workflow execution is not yet accepted.
-- Repository deletion and visibility-change restrictions are still enabled. The
-  organization REST update endpoint accepts the PATCH but does not apply these fields;
-  its documented body omits both. The owner will set them through GitHub's member
-  privileges UI and then verify by API readback.
+- Repository deletion and visibility-change restrictions now both read false after the
+  owner changed the GitHub UI settings. The organization REST update endpoint accepts
+  PATCH but does not apply these fields; its documented body omits them. The controller
+  reports any future drift as manual-only and does not replay ineffective writes.
 - Organization 2FA enforcement remains off until the owner completes 2FA enrollment.
 - Organization rulesets are not required on GitHub Free. The live rulesets endpoint
   returned an explicit 403 upgrade requirement; use public per-repository rulesets.
@@ -52,12 +52,9 @@ of immutable workflow identity or full operational acceptance is made.
 
 1. Owner completes 2FA enrollment; then inventory all current members/collaborators and
    enable organization enforcement only if everyone is compliant.
-2. Owner applies deletion and visibility restrictions in the GitHub UI; verify both
-   become false through `GET /orgs/Samwise-OS`.
-3. Safe-Settings App inspection, selected installation and key/variable setup remain
+2. Safe-Settings App inspection, selected installation and key/variable setup remain
    separately gated and are being handled outside this policy controller.
-4. Provision the three declared public repositories and apply the Maintainers grants.
-5. Execute the canary enforcement, idempotence, failure and recovery suite. Record
+3. Execute the canary enforcement, idempotence, failure and recovery suite. Record
    evidence before revising acceptance status.
 
 The observed-state document preserves the initial pre-write audit separately from

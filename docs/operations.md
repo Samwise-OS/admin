@@ -3,16 +3,28 @@
 ## Read-only validation
 
 Use Python 3.11+ and an already authenticated official GitHub CLI. Invoke
-`python scripts/audit.py validate` from this repository to validate the proposal.
-Invoke `python -m unittest discover -s tests -v` to exercise audit behavior.
-Invoke `python scripts/audit.py audit --output .local/observed-state.json` for fresh
-authenticated readback and managed-settings comparison.
+`python scripts/audit.py validate` from this repository to validate the declarations.
+Invoke `python -m unittest discover -s tests -v` to exercise the public API boundary
+adapters and deterministic behavior. Invoke `python scripts/audit.py audit --output
+.local/observed-state.json` for fresh authenticated inventory and read-only comparison.
+Use `python scripts/organization.py plan` to show policy writes without mutation, then
+`python scripts/organization.py apply` to reconcile authorized organization policies,
+team membership and grants. The controller verifies organization ID, owner identity and
+role before writing; it reads first, records partial failures, and reads back each
+policy. Fields absent from the documented organization update request are reported as
+manual-only drift and are not replayed as ineffective writes. The team synchronizer
+defers a grant until the declared repository exists and applies it on a later run.
+
+Sanitized execution evidence is written to ignored `.local/org-policy-results.json`.
+It is local diagnostic evidence containing organization access state; do not publish it.
 
 Exit codes: 0 means the compared settings match (or local validation passed), 2 means
 observed settings drift, 3 means at least one read is unknown, and 4 means an execution
 or configuration error. An incomplete result can also contain drift. A matching settings
-report is never operational acceptance. The utility does not compare effective rules,
-membership intent, installations, template inheritance or functional CI behavior;
+report is never operational acceptance. An organization rulesets 403 explicitly
+requiring GitHub Team is classified as `unsupported_plan`; other denied reads remain
+unknown. The utility does not compare effective rules, membership intent, installations,
+template inheritance or functional CI behavior;
 these remain separate acceptance tests. Repository ruleset lists are observations only.
 
 The script explicitly issues GET requests against github.com, verifies the organization
@@ -53,10 +65,16 @@ its lockfile must be honored, and dependency installation must occur before cred
 are exposed. Do not grant its upstream example manifest wholesale. Use canary-only
 include scope first. Test partial failures and exit status; dry-run is not acceptance.
 
-Organization base/member policies and Actions policy endpoints are separate approved
-official API operations. Capture original managed values, submit only intended fields,
-then GET each resource. The selected-actions endpoint and overall Actions permission
-endpoint must be applied in an order that retains the verified bootstrap actions.
+Organization defaults and Actions policy are separate approved official API operations.
+Capture original managed values, submit only intended fields, then GET each resource.
+Actions policy PUT sends its complete required body, including unchanged
+`enabled_repositories`. Apply selected mode before selected-action restrictions. Deletion
+and visibility member-privilege controls are not part of the documented organization
+update request body; verify their UI changes with authenticated GET readback.
+
+The declared `Maintainers` team is synced idempotently. Only explicitly listed existing
+users are added; the controller does not accept invitations or alter unrelated members.
+Repository grants are applied only for declared repositories that already exist.
 
 Privileged execution must use reviewed default-branch code with an owner-approved
 manual trigger initially. Do not use PR code, `pull_request_target`, arbitrary workflow

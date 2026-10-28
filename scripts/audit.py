@@ -113,7 +113,7 @@ def audit(config, defaults, fetch=get):
         observations[key] = fetch(endpoint, paginated="per_page" in endpoint)
     rulesets = observations["organization_rulesets"]
     if (rulesets["state"] == "unknown" and rulesets.get("http_status") == "403" and
-            "upgrade to team" in rulesets.get("reason", "").lower()):
+            "upgrade to github team" in rulesets.get("reason", "").lower()):
         rulesets["state"] = "unsupported_plan"
     comparisons = {"organization_settings": compare(identity, config["organization_settings"])}
     for key in ("organization_actions", "organization_selected_actions", "organization_workflow_permissions"):

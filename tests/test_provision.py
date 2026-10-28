@@ -21,6 +21,13 @@ class ProvisionTests(unittest.TestCase):
                 "type": "file", "path": provision.WORKFLOW_PATH, "content": source
             })
 
+    def test_published_github_base64_line_wrapping_is_accepted(self):
+        body = base64.b64encode(b"name: baseline\non:\n  workflow_call:\n").decode("ascii")
+        wrapped = body[:12] + "\n" + body[12:]
+        provision.validate_workflow_source({
+            "type": "file", "path": provision.WORKFLOW_PATH, "content": wrapped
+        })
+
     def test_existing_wrong_visibility_is_not_silently_converted(self):
         desired = {"name": "baseline-canary", "visibility": "public", "is_template": False, "description": "Canary"}
         observed = {"name": "baseline-canary", "visibility": "private", "is_template": False, "description": "Canary"}

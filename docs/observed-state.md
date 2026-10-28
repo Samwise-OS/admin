@@ -1,5 +1,9 @@
 # Initial observed state
 
+This section is the pre-reconciliation snapshot, captured on 2026-10-27. It is kept as
+historical evidence and does not describe the current organization state. Current policy
+readback and apply evidence follow below.
+
 Observed during this session on 2026-10-27 (America/New_York), using authenticated
 official GitHub REST calls through `gh`. Organization ID: `349008063`.
 This is a point-in-time audit, not a completion certificate.
@@ -37,6 +41,35 @@ and four unreadable organization policy resources. It always reports operational
 acceptance as false because an API comparison cannot establish functional enforcement.
 The complete local response inventory is intentionally not committed to the public repo.
 
-No live organization setting, access grant, app, rule, credential scope or schedule
-was changed during this inspection. Publishing a proposed branch/PR is tracked separately
-from live policy activation.
+No live organization setting, access grant, app, rule, credential scope or schedule was
+changed during this initial inspection.
+
+## Current policy readback
+
+On 2026-10-28, authenticated `gh api` calls as owner `Samwise-x` reconciled the
+organization baseline. Default repository permission is `none`; member repository
+creation is disabled for public and private repositories. Organization Actions now
+allow GitHub-owned actions only, require full-length SHA pins, and disallow verified
+marketplace actions and extra patterns. Workflow tokens remain read-only and cannot
+approve pull requests. Organization 2FA remains disabled.
+
+`members_can_change_repo_visibility` and `members_can_delete_repositories` both read
+`false` after the owner changed them through the settings UI. These fields are returned
+by GET but absent from GitHub's documented Update an organization request body, and the
+REST PATCH did not change them. The controller treats any future drift as manual-only.
+
+The `Maintainers` team (ID `20375471`, slug `maintainers`) has `Samwise-x` with the
+maintainer role and a `maintain` grant on `admin`, `.github`, `repository-template`
+and `baseline-canary`. The pending `BVEnterprisess` invitation remains a direct-member
+invitation.
+
+The `admin/governance` environment (ID `25527561232`) has custom deployment branches
+enabled, protected-branch matching disabled and exactly the `main` branch policy. It
+has no required reviewer. This does not establish successful privileged execution.
+
+The organization rulesets endpoint returned HTTP 403 with an explicit GitHub Team plan
+upgrade requirement. The auditor classifies this as `unsupported_plan`, not as absent
+configuration or an unexplained read failure. The ignored `.local/org-policy-results.json`
+contains sanitized live readback and two consecutive zero-write policy and team passes.
+Overall acceptance remains false because owner 2FA is open, Safe-Settings authentication
+is pending, and the canary suite has not run.
