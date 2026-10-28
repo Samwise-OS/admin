@@ -1,6 +1,7 @@
 """Behavior checks for the public bounded Safe-Settings config seam."""
 
 import json
+import os
 import pathlib
 import tempfile
 import unittest
@@ -26,8 +27,13 @@ class SafeSettingsValidationTests(unittest.TestCase):
         (github / "deployment-settings.yml").write_text(json.dumps({
             "restrictedRepos": {"include": ["admin", "baseline-canary"]}
         }), encoding="utf-8")
+        repos = github / "repos"
+        repos.mkdir()
+        (repos / "baseline-canary.yml").write_text(json.dumps({
+            "rulesets": [safe.expected_ruleset()]
+        }), encoding="utf-8")
 
-    def test_accepts_reviewed_allowlist_and_additive_ruleset_mode(self):
+    def test_accepts_approved_canary_ruleset_and_live_check_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             self.valid_tree(root)
@@ -37,9 +43,10 @@ class SafeSettingsValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             self.valid_tree(root)
-            settings = json.loads((root / ".github/settings.yml").read_text())
+            settings_path = root / ".github/settings.yml"
+            settings = json.loads(settings_path.read_text())
             settings["validators"] = {"repository": "process.exit(0)"}
-            (root / ".github/settings.yml").write_text(json.dumps(settings))
+            settings_path.write_text(json.dumps(settings))
             with self.assertRaisesRegex(ValueError, "only repository and additive_plugins"):
                 safe.validate(root)
 
@@ -55,32 +62,40 @@ class SafeSettingsValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "only restrictedRepos"):
                 safe.validate(root)
 
-    def test_rejects_non_additive_ruleset_configuration(self):
+    def test_rejects_wrong_check_context_or_app_id(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             self.valid_tree(root)
-            repos = root / ".github/repos"
-            repos.mkdir()
-            (repos / "baseline-canary.yml").write_text(json.dumps({
-                "rulesets": [{
-                    "name": "samwise-default-branch",
-                    "target": "branch",
-                    "enforcement": "active",
-                    "bypass_actors": [],
-                }]
-            }))
-            with self.assertRaisesRegex(ValueError, "remains disabled"):
+            path = root / ".github/repos/baseline-canary.yml"
+            config = json.loads(path.read_text())
+            check = config["rulesets"][0]["rules"][-1]["parameters"]["required_status_checks"][0]
+            check["context"] = "governance"
+            path.write_text(json.dumps(config))
+            with self.assertRaisesRegex(ValueError, "exact reviewed payload"):
                 safe.validate(root)
 
-    def test_rejects_allowlist_expansion(self):
+    def test_rejects_yaml_alias_and_unknown_repo_config_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             self.valid_tree(root)
-            path = root / ".github/deployment-settings.yml"
-            path.write_text(json.dumps({
-                "restrictedRepos": {"include": ["admin", "github"]}
-            }))
-            with self.assertRaisesRegex(ValueError, "allowlist must be exactly"):
+            (root / ".github/repos/baseline-canary.yaml").write_text("{}");
+            with self.assertRaisesRegex(ValueError, "outside the approved set"):
+                safe.validate(root)
+
+    def test_rejects_symlinked_ruleset_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            self.valid_tree(root)
+            repo_dir = root / ".github/repos"
+            config = repo_dir / "baseline-canary.yml"
+            target = root / "outside.yml"
+            target.write_text(config.read_text())
+            config.unlink()
+            try:
+                os.symlink(target, config)
+            except (OSError, NotImplementedError):
+                self.skipTest("host does not permit creating file symlinks")
+            with self.assertRaisesRegex(ValueError, "symlink"):
                 safe.validate(root)
 
 

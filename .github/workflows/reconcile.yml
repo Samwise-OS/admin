@@ -50,10 +50,10 @@ jobs:
           path: .safe-settings
           persist-credentials: false
 
-      - name: Set up Node.js 22
+      - name: Set up Node.js 22.23.4
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version: 22.23.4
 
       - name: Verify lockfile and install locked production dependencies
         working-directory: .safe-settings
@@ -61,7 +61,18 @@ jobs:
           echo '8C0EDE66EB57296B64B0A2144C9AF75553A1B271E571DCCA278606DCD6150F7B  package-lock.json' | sha256sum --check --status
           npm ci --omit=dev --ignore-scripts
 
+      - name: Recheck remote main immediately before reconciliation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          remote_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          test "$remote_sha" = "$GITHUB_SHA" || {
+            echo "Remote main config moved during preparation; refusing reconciliation." >&2
+            exit 1
+          }
+
       - name: Reconcile repository settings
+        id: full_sync
         working-directory: .safe-settings
         env:
           APP_ID: ${{ vars.SAFE_SETTINGS_APP_ID }}
@@ -73,4 +84,16 @@ jobs:
           DEPLOYMENT_CONFIG_FILE: ${{ github.workspace }}/.github/deployment-settings.yml
           FULL_SYNC_NOP: ${{ inputs.full_sync_nop }}
           LOG_LEVEL: info
+          NODE_OPTIONS: --require=${{ github.workspace }}/scripts/trace_safe_settings.cjs
         run: node full-sync.js
+
+      - name: Check trusted main revision after reconciliation
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          remote_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          test "$remote_sha" = "$GITHUB_SHA" || {
+            echo "Remote main changed during reconciliation. Review any writes before retrying." >&2
+            exit 1
+          }
