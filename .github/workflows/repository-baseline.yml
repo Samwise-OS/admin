@@ -1,0 +1,31 @@
+name: Reusable repository baseline
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  standards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify repository engineering contract
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          required = ('README.md', 'AGENTS.md', '.editorconfig', '.gitattributes',
+                      '.github/CODEOWNERS', 'docs/agents/issue-tracker.md',
+                      'docs/agents/triage-labels.md', 'docs/agents/domain.md')
+          failures = [name for name in required
+                      if not pathlib.Path(name).is_file()
+                      or not pathlib.Path(name).read_text(encoding='utf-8').strip()]
+          if failures:
+              raise SystemExit('Missing or empty required standards: ' + ', '.join(failures))
+          print('Repository engineering contract satisfied.')
+          PY

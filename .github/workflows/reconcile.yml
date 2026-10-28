@@ -1,0 +1,76 @@
+name: Safe-Settings reconciliation
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_sync_nop:
+        description: Preview only (true) or apply the reviewed baseline (false)
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: safe-settings-reconciliation
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: governance
+    steps:
+      - name: Checkout trusted admin revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate bounded Safe-Settings configuration
+        run: python3 scripts/validate_safe_settings.py
+
+      - name: Confirm Safe-Settings remote config is this trusted main revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          remote_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          test "$remote_sha" = "$GITHUB_SHA" || {
+            echo "Remote main config moved during dispatch; refusing reconciliation." >&2
+            exit 1
+          }
+
+      - name: Checkout reviewed Safe-Settings source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: github-community-projects/safe-settings
+          ref: e19444e0d69de050ba55d0262b71fcd8a98edfef
+          path: .safe-settings
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Verify lockfile and install locked production dependencies
+        working-directory: .safe-settings
+        run: |
+          echo '8C0EDE66EB57296B64B0A2144C9AF75553A1B271E571DCCA278606DCD6150F7B  package-lock.json' | sha256sum --check --status
+          npm ci --omit=dev --ignore-scripts
+
+      - name: Reconcile repository settings
+        working-directory: .safe-settings
+        env:
+          APP_ID: ${{ vars.SAFE_SETTINGS_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.SAFE_SETTINGS_PRIVATE_KEY }}
+          GH_ORG: Samwise-OS
+          ADMIN_REPO: admin
+          CONFIG_PATH: .github
+          SETTINGS_FILE_PATH: settings.yml
+          DEPLOYMENT_CONFIG_FILE: ${{ github.workspace }}/.github/deployment-settings.yml
+          FULL_SYNC_NOP: ${{ inputs.full_sync_nop }}
+          LOG_LEVEL: info
+        run: node full-sync.js
