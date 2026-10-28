@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "organization": "Samwise-OS",
+  "organization_id": 349008063,
+  "admin_repository": "admin",
+  "state": "authorized-policy-reconciliation",
+  "organization_settings": {
+    "default_repository_permission": "none",
+    "members_can_create_repositories": false,
+    "members_can_create_public_repositories": false,
+    "members_can_create_private_repositories": false,
+    "members_can_delete_repositories": false,
+    "members_can_change_repo_visibility": false
+  },
+  "organization_actions": {
+    "enabled_repositories": "all",
+    "allowed_actions": "selected",
+    "sha_pinning_required": true
+  },
+  "organization_selected_actions": {
+    "github_owned_allowed": true,
+    "verified_allowed": false,
+    "patterns_allowed": []
+  },
+  "organization_workflow_permissions": {
+    "default_workflow_permissions": "read",
+    "can_approve_pull_request_reviews": false
+  },
+  "teams": [
+    {
+      "name": "Maintainers",
+      "slug": "maintainers",
+      "privacy": "closed",
+      "maintainers": ["Samwise-x"],
+      "repository_grants": {
+        "admin": "maintain",
+        ".github": "maintain",
+        "repository-template": "maintain",
+        "baseline-canary": "maintain"
+      }
+    }
+  ],
+  "provisioning": {
+    "name_pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    "reserved_names": ["admin", ".github"],
+    "default_branch": "main",
+    "default_visibility": "public",
+    "review_approvals": 0,
+    "delete_repositories": false,
+    "archive_requires_owner_approval": true
+  },
+  "safe_settings": {
+    "repository": "github-community-projects/safe-settings",
+    "candidate_commit": "e19444e0d69de050ba55d0262b71fcd8a98edfef",
+    "source_review_complete": false,
+    "installed": false,
+    "schedule_enabled": false
+  },
+  "owner_decisions_pending": [
+    "Owner must complete 2FA enrollment before organization-wide 2FA enforcement",
+    "SafeSettings App review, authentication and installation remain separate gated work",
+    "Canary enforcement suite and operational acceptance remain incomplete"
+  ]
+}

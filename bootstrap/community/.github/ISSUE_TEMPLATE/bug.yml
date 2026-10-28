@@ -1,0 +1,17 @@
+name: Bug report
+description: Report reproducible incorrect behavior
+labels: [bug, needs-triage]
+body:
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction and actual behavior
+      description: Include version and minimal steps; redact secrets and personal data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true

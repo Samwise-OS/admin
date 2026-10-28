@@ -1,0 +1,5 @@
+{
+  "restrictedRepos": {
+    "include": ["admin", "baseline-canary"]
+  }
+}
