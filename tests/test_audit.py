@@ -1,6 +1,9 @@
 import importlib.util
+import json
 import pathlib
+import shutil
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -11,6 +14,158 @@ SPEC.loader.exec_module(audit)
 
 
 class AuditTests(unittest.TestCase):
+    def managed_fixture(self, mutate=None, denied=None):
+        config = audit.load(ROOT / "config/organization.json")
+        defaults = audit.load(ROOT / ".github/settings.yml")
+        from scripts.validate_safe_settings import managed_repositories
+        admin, repositories = managed_repositories(ROOT)
+        identity_manifest = audit.load(ROOT / "config/repositories.json")
+        ids = {entry["name"]: entry["id"] for entry in identity_manifest["repositories"]}
+        ids[admin] = config["admin_repository_id"]
+        expected = {
+            name: audit.load(ROOT / ".github/repos" / f"{name}.yml")["rulesets"][0]
+            for name in repositories
+        }
+        denied = denied or set()
+
+        def fetch(endpoint, **kwargs):
+            if endpoint in denied:
+                return {"state": "unknown", "http_status": "403"}
+            if endpoint == "orgs/Samwise-OS":
+                return {"state": "observed", "value": {"id": config["organization_id"]}}
+            for name in repositories:
+                if endpoint == f"repos/Samwise-OS/{name}":
+                    return {"state": "observed", "value": {
+                        **defaults["repository"], "id": ids[name],
+                        "full_name": f"Samwise-OS/{name}",
+                        "owner": {"login": "Samwise-OS", "id": config["organization_id"]},
+                    }}
+                if endpoint == f"repos/Samwise-OS/{name}/rulesets?per_page=100":
+                    return {"state": "observed", "value": [
+                        {"id": 500 + index, "name": expected[name]["name"]}
+                        for index, candidate in enumerate(repositories) if candidate == name
+                    ] + [{"id": 900, "name": "unmanaged-extra"}]}
+                if endpoint.startswith(f"repos/Samwise-OS/{name}/rulesets/"):
+                    detail = dict(expected[name])
+                    detail.update({"id": 500 + repositories.index(name),
+                                   "source": f"Samwise-OS/{name}"})
+                    if mutate:
+                        mutate(name, detail)
+                    return {"state": "observed", "value": detail}
+            self.fail(f"Unexpected audit endpoint: {endpoint}")
+
+        return config, defaults, fetch
+
+    def test_managed_audit_compares_repository_defaults_and_exact_named_ruleset(self):
+        config, defaults, fetch = self.managed_fixture()
+        result = audit.audit_managed_repositories(config, defaults, fetch)
+        self.assertEqual("match", result["comparison_state"])
+        self.assertEqual("declared-managed-repositories", result["scope"])
+        self.assertTrue(all(item["state"] == "match"
+                            for item in result["comparisons"].values()))
+
+    def test_managed_audit_detects_missing_rule_and_check_app_mismatch(self):
+        def mismatch_check_app(name, detail):
+            check = detail["rules"][-1]["parameters"]["required_status_checks"][0]
+            check["integration_id"] = 999
+
+        config, defaults, fetch = self.managed_fixture(mutate=mismatch_check_app)
+        result = audit.audit_managed_repositories(config, defaults, fetch)
+        differences = result["comparisons"]["repository:admin:managed_ruleset"]["differences"]
+        self.assertIn("rules[4].parameters.required_status_checks[0].integration_id", differences)
+
+        def missing_rule(name, detail):
+            detail["rules"].pop(0)
+
+        config, defaults, fetch = self.managed_fixture(mutate=missing_rule)
+        result = audit.audit_managed_repositories(config, defaults, fetch)
+        self.assertEqual("drift", result["comparison_state"])
+        differences = result["comparisons"]["repository:admin:managed_ruleset"]["differences"]
+        self.assertIn("rules", differences)
+
+    def test_managed_audit_detects_inactive_ruleset_and_preserves_unrelated_rulesets(self):
+        def mutate(_name, detail):
+            detail["enforcement"] = "disabled"
+
+        config, defaults, fetch = self.managed_fixture(mutate=mutate)
+        result = audit.audit_managed_repositories(config, defaults, fetch)
+        self.assertEqual("drift", result["comparisons"][
+            "repository:baseline-canary:managed_ruleset"]["state"])
+        self.assertNotIn("unmanaged-extra", str(result["comparisons"]))
+
+    def test_managed_audit_unknown_on_denied_ruleset_details(self):
+        config, defaults, fetch = self.managed_fixture(
+            denied={"repos/Samwise-OS/admin/rulesets/501"})
+        result = audit.audit_managed_repositories(config, defaults, fetch)
+        self.assertEqual("incomplete", result["comparison_state"])
+        self.assertEqual("unknown", result["comparisons"][
+            "repository:admin:managed_ruleset"]["state"])
+
+    def test_managed_audit_treats_malformed_ruleset_details_as_unknown(self):
+        config, defaults, fetch = self.managed_fixture()
+
+        def malformed(endpoint, **kwargs):
+            result = fetch(endpoint, **kwargs)
+            if endpoint.startswith("repos/Samwise-OS/admin/rulesets/"):
+                return {"state": "observed", "value": []}
+            return result
+
+        result = audit.audit_managed_repositories(config, defaults, malformed)
+        self.assertEqual("unknown", result["comparisons"][
+            "repository:admin:managed_ruleset"]["state"])
+
+    def test_managed_audit_stops_before_rulesets_when_repository_identity_differs(self):
+        config, defaults, fetch = self.managed_fixture()
+        calls = []
+
+        def wrong_identity(endpoint, **kwargs):
+            calls.append(endpoint)
+            result = fetch(endpoint, **kwargs)
+            if endpoint == "repos/Samwise-OS/admin":
+                result["value"]["id"] = 1
+            return result
+
+        result = audit.audit_managed_repositories(config, defaults, wrong_identity)
+        self.assertEqual("drift", result["comparisons"]["repository:admin:identity"]["state"])
+        self.assertNotIn("repos/Samwise-OS/admin/rulesets?per_page=100", calls)
+
+    def test_managed_audit_reports_unknown_for_manifest_without_id(self):
+        config, defaults, fetch = self.managed_fixture()
+        calls = []
+
+        def observed(endpoint, **kwargs):
+            calls.append(endpoint)
+            return fetch(endpoint, **kwargs)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            (root / "config").mkdir()
+            (root / ".github/repos").mkdir(parents=True)
+            shutil.copy(ROOT / "config/organization.json", root / "config/organization.json")
+            manifest = audit.load(ROOT / "config/repositories.json")
+            manifest["repositories"][0].pop("id")
+            (root / "config/repositories.json").write_text(
+                json.dumps(manifest), encoding="utf-8")
+            for path in (ROOT / ".github/repos").glob("*.yml"):
+                shutil.copy(path, root / ".github/repos" / path.name)
+            result = audit.audit_managed_repositories(config, defaults, observed, root=root)
+
+        self.assertEqual("incomplete", result["comparison_state"])
+        self.assertEqual("unknown", result["comparisons"]["repository:.github:identity"]["state"])
+        self.assertNotIn("repos/Samwise-OS/.github/rulesets?per_page=100", calls)
+
+    def test_managed_receipt_contains_paths_without_observed_values(self):
+        receipt = audit.sanitized_managed_comparisons({
+            "repository:admin:settings": {
+                "state": "drift",
+                "differences": [{"field": "has_wiki", "expected": False,
+                                 "observed": True, "missing": False}],
+            },
+        })
+        self.assertEqual(["has_wiki"], receipt[0]["difference_paths"])
+        self.assertNotIn("expected", str(receipt))
+        self.assertNotIn("observed", str(receipt))
+
     def test_denied_read_is_unknown_not_compliant_or_absent(self):
         response = subprocess.CompletedProcess([], 1, '{"status":"403","message":"Denied"}', "")
         with patch.object(audit.subprocess, "run", return_value=response):

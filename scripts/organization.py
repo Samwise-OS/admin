@@ -6,17 +6,74 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from scripts.validate_safe_settings import managed_repositories
+
 API_VERSION = "2022-11-28"
 ORG_API_WRITABLE_FIELDS = {
     "default_repository_permission", "members_can_create_repositories",
     "members_can_create_public_repositories", "members_can_create_private_repositories"
 }
+TEAM_REPOSITORY_PERMISSIONS = {"maintain", "push", "pull", "triage", "admin"}
+TEAM_PERMISSION_STRENGTH = {"pull": 1, "triage": 2, "push": 3, "maintain": 4, "admin": 5}
+
+
+def observed_team_permission(repository):
+    """Return the strongest reported role when older fixtures omit role_name."""
+    role_name = repository.get("role_name")
+    if role_name is not None:
+        return role_name if role_name in TEAM_PERMISSION_STRENGTH else None
+    permissions = repository.get("permissions", {})
+    if not isinstance(permissions, dict):
+        return None
+    granted = [name for name in TEAM_PERMISSION_STRENGTH
+               if permissions.get(name) is True]
+    return max(granted, key=TEAM_PERMISSION_STRENGTH.get) if granted else None
+
+
+def team_repository_grants(config, root=None):
+    """Resolve team grants only within the repository authority manifests."""
+    teams = config.get("teams", [])
+    if not teams:
+        return {}
+    _, managed = managed_repositories(ROOT if root is None else root)
+    allowed_repositories = set(managed)
+    result = {}
+    for team in teams:
+        slug = team.get("slug")
+        if not isinstance(slug, str) or not slug:
+            raise ValueError("Team configuration requires a non-empty slug")
+        if slug in result:
+            raise ValueError(f"Duplicate team configuration for {slug}")
+        has_permission = "repository_permission" in team
+        has_grants = "repository_grants" in team
+        if has_permission and has_grants:
+            raise ValueError(f"Team {slug} cannot define both repository_permission and repository_grants")
+        if has_permission:
+            permission = team["repository_permission"]
+            if not isinstance(permission, str) or permission not in TEAM_REPOSITORY_PERMISSIONS:
+                raise ValueError(f"Team {slug} has an unsupported repository permission")
+            grants = {repository: permission for repository in managed}
+        else:
+            grants = team.get("repository_grants", {})
+            if not isinstance(grants, dict):
+                raise ValueError(f"Team {slug} repository_grants must be an object")
+            if set(grants) - allowed_repositories:
+                raise ValueError(f"Team {slug} repository_grants include unmanaged repositories")
+            if any(not isinstance(permission, str) or permission not in TEAM_REPOSITORY_PERMISSIONS
+                   for permission in grants.values()):
+                raise ValueError(f"Team {slug} has an unsupported repository permission")
+        result[slug] = grants
+    return result
 
 
 def gh(endpoint, method="GET", payload=None):
+    paginate = method.upper() == "GET" and "per_page=" in endpoint
     command = ["gh", "api", "--hostname", "github.com", "--method", method,
                "-H", f"X-GitHub-Api-Version: {API_VERSION}",
                "-H", "Accept: application/vnd.github+json", endpoint]
+    if paginate:
+        command += ["--paginate", "--slurp"]
     if payload is not None:
         command += ["--input", "-"]
     result = subprocess.run(command, input=None if payload is None else json.dumps(payload),
@@ -28,7 +85,15 @@ def gh(endpoint, method="GET", payload=None):
             error = {}
         return {"ok": False, "status": error.get("status"),
                 "message": error.get("message", result.stderr.strip() or "GitHub request failed")}
-    return {"ok": True, "value": json.loads(result.stdout) if result.stdout.strip() else {}}
+    try:
+        value = json.loads(result.stdout) if result.stdout.strip() else {}
+    except json.JSONDecodeError:
+        return {"ok": False, "message": f"Invalid JSON response from {endpoint}"}
+    if paginate:
+        if not isinstance(value, list) or any(not isinstance(page, list) for page in value):
+            return {"ok": False, "message": f"Unexpected paginated response shape from {endpoint}"}
+        value = [item for page in value for item in page]
+    return {"ok": True, "value": value}
 
 
 def plan(config, organization, current):
@@ -56,6 +121,8 @@ def plan(config, organization, current):
 
 
 def reconcile(config, request=gh):
+    # Validate all requested access before any API read or write.
+    resolved_team_grants = team_repository_grants(config)
     org = config["organization"]
     identity = request(f"orgs/{org}")
     if not identity.get("ok") or identity["value"].get("id") != config["organization_id"]:
@@ -130,24 +197,33 @@ def reconcile(config, request=gh):
         team_repositories = request(f"orgs/{org}/teams/{slug}/repos?per_page=100")
         if not team_repositories.get("ok"):
             raise RuntimeError(f"Cannot read team repository grants for {slug}")
-        grants = {repo["name"]: repo.get("permissions", {})
+        grants = {repo["name"]: repo
                   for repo in team_repositories["value"]}
-        for repository, permission in team_spec["repository_grants"].items():
+        for repository, permission in resolved_team_grants[slug].items():
             if repository not in repository_names:
                 team_events.append({"repository": repository, "team": slug, "result": "deferred-not-created"})
                 continue
-            if grants.get(repository, {}).get(permission) is True:
+            if observed_team_permission(grants.get(repository, {})) == permission:
                 team_events.append({"repository": repository, "team": slug, "result": "already-matching"})
                 continue
             grant_endpoint = f"orgs/{org}/teams/{slug}/repos/{org}/{repository}"
             grant = request(grant_endpoint, "PUT", {"permission": permission})
             if not grant.get("ok"):
                 raise RuntimeError(f"Cannot grant {permission} to {slug} on {repository}: {grant}")
+            readback = request(f"orgs/{org}/teams/{slug}/repos?per_page=100")
+            if not readback.get("ok"):
+                raise RuntimeError(f"Cannot verify repository grant for {slug} on {repository}")
+            observed = next((item for item in readback["value"]
+                             if item.get("name") == repository), {})
+            if observed_team_permission(observed) != permission:
+                raise RuntimeError(f"Repository grant readback mismatch for {slug} on {repository}: expected {permission}")
             team_events.append({"repository": repository, "team": slug, "result": "written"})
     return {"actor": actor["value"].get("login"), "organization_id": identity["value"]["id"],
             "planned_writes": writes, "events": events, "readback": final,
             "matches": comparisons, "manual_only_drift": manual_only, "team_events": team_events,
-            "complete": all(all(x.values()) for x in comparisons.values())}
+            "complete": (all(all(x.values()) for x in comparisons.values())
+                         and not any(event.get("result") == "deferred-not-created"
+                                     for event in team_events))}
 
 
 def main():

@@ -2,14 +2,45 @@
 
 import json
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-EXPECTED_REPOSITORIES = {"admin", "baseline-canary"}
+EXPECTED_ORGANIZATION = "Samwise-OS"
+EXPECTED_ORGANIZATION_ID = 349008063
+EXPECTED_ADMIN_REPOSITORY = "admin"
 EXPECTED_RULESET = "samwise-default-branch"
-EXPECTED_CHECK_CONTEXT = "baseline / standards"
 EXPECTED_CHECK_APP_ID = 15368
-ALLOWED_REPO_CONFIGS = {"baseline-canary.yml"}
+
+
+def managed_repositories(root=ROOT):
+    """Load the sole repository scope from organization and repository manifests."""
+    root = pathlib.Path(root).resolve(strict=True)
+    config_dir = root / "config"
+    if config_dir.is_symlink() or not config_dir.is_dir():
+        raise ValueError("config must be a real directory inside the checkout")
+    organization = read_json_yaml(config_dir / "organization.json", root)
+    repositories = read_json_yaml(config_dir / "repositories.json", root)
+    admin = organization.get("admin_repository")
+    entries = repositories.get("repositories")
+    if (organization.get("organization") != EXPECTED_ORGANIZATION
+        or repositories.get("organization") != EXPECTED_ORGANIZATION
+        or organization.get("organization_id") != EXPECTED_ORGANIZATION_ID
+        or repositories.get("organization_id") != EXPECTED_ORGANIZATION_ID
+        or admin != EXPECTED_ADMIN_REPOSITORY):
+        raise ValueError("Repository authority manifests must identify the authorized Samwise-OS organization and admin repository")
+    if not isinstance(entries, list):
+        raise ValueError("Repository authority manifests contain invalid repository declarations")
+    names = [entry.get("name") for entry in entries if isinstance(entry, dict)]
+    if len(names) != len(entries) or any(not valid_repository_name(name) for name in names):
+        raise ValueError("Repository authority manifests contain an invalid repository name")
+    if len(set(names)) != len(names) or admin in names:
+        raise ValueError("Repository authority manifests contain duplicate managed names")
+    return admin, sorted([admin, *names])
+
+
+def valid_repository_name(name):
+    return isinstance(name, str) and (name == ".github" or re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name))
 
 
 def read_json_yaml(path, root):
@@ -28,7 +59,7 @@ def read_json_yaml(path, root):
     return value
 
 
-def expected_ruleset():
+def expected_ruleset(context):
     return {
         "name": EXPECTED_RULESET,
         "target": "branch",
@@ -54,7 +85,7 @@ def expected_ruleset():
                 "strict_required_status_checks_policy": True,
                 "do_not_enforce_on_create": False,
                 "required_status_checks": [{
-                    "context": EXPECTED_CHECK_CONTEXT,
+                    "context": context,
                     "integration_id": EXPECTED_CHECK_APP_ID,
                 }],
             }},
@@ -78,14 +109,14 @@ def validate_settings(settings):
         raise ValueError("repository defaults must be booleans")
 
 
-def validate_deployment(config):
+def validate_deployment(config, managed):
     if set(config) != {"restrictedRepos"}:
         raise ValueError("deployment-settings.yml may contain only restrictedRepos")
     scope = config["restrictedRepos"]
     if not isinstance(scope, dict) or set(scope) != {"include"}:
         raise ValueError("restrictedRepos must use an include-only allowlist")
-    if scope["include"] != sorted(EXPECTED_REPOSITORIES):
-        raise ValueError("deployment allowlist must be exactly admin and baseline-canary")
+    if scope["include"] != managed:
+        raise ValueError("deployment allowlist must exactly match the sorted managed repository set")
 
 
 def scan_config_directory(directory, allowed_files):
@@ -108,18 +139,22 @@ def validate(root=ROOT):
     github = root / ".github"
     if github.is_symlink() or not github.is_dir():
         raise ValueError(".github must be a real directory inside the checkout")
+    admin, managed = managed_repositories(root)
     validate_settings(read_json_yaml(github / "settings.yml", root))
-    validate_deployment(read_json_yaml(github / "deployment-settings.yml", root))
+    validate_deployment(read_json_yaml(github / "deployment-settings.yml", root), managed)
 
     repos = github / "repos"
-    scan_config_directory(repos, ALLOWED_REPO_CONFIGS)
+    expected_files = {f"{name}.yml" for name in managed}
+    scan_config_directory(repos, expected_files)
     scan_config_directory(github / "suborgs", set())
-    repo_config = repos / "baseline-canary.yml"
-    config = read_json_yaml(repo_config, root)
-    if set(config) != {"rulesets"}:
-        raise ValueError("baseline-canary.yml may contain only the repo-scoped rulesets key")
-    if config["rulesets"] != [expected_ruleset()]:
-        raise ValueError("baseline-canary ruleset differs from the exact reviewed payload")
+    for name in managed:
+        repo_config = repos / f"{name}.yml"
+        config = read_json_yaml(repo_config, root)
+        if set(config) != {"rulesets"}:
+            raise ValueError(f"{repo_config.name} may contain only the repo-scoped rulesets key")
+        context = "governance" if name == admin else "baseline / standards"
+        if config["rulesets"] != [expected_ruleset(context)]:
+            raise ValueError(f"{repo_config.name} ruleset differs from the exact reviewed payload")
 
 
 def main():

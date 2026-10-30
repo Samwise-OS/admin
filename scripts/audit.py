@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 API_VERSION = "2022-11-28"
 
 
@@ -25,6 +26,8 @@ def validate(config, defaults, ruleset):
         raise ValueError("Organization identity does not match the approved boundary")
     if config.get("admin_repository") != "admin":
         raise ValueError("Unexpected administration repository")
+    if type(config.get("admin_repository_id")) is not int or config["admin_repository_id"] <= 0:
+        raise ValueError("An immutable admin repository ID is required")
     if (not defaults.get("repository") or
             set(defaults) not in ({"repository"}, {"repository", "additive_plugins"}) or
             defaults.get("additive_plugins", ["rulesets"]) != ["rulesets"]):
@@ -91,6 +94,165 @@ def compare(observation, desired):
     return {"state": "drift" if differences else "match", "differences": differences}
 
 
+def compare_projection(actual, expected, path=""):
+    """Compare only declared fields, while requiring arrays to match exactly."""
+    differences = []
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict):
+            return [path or "$" ]
+        for key, value in expected.items():
+            child = f"{path}.{key}" if path else key
+            if key not in actual:
+                differences.append(child)
+            else:
+                differences.extend(compare_projection(actual[key], value, child))
+        return differences
+    if isinstance(expected, list):
+        if not isinstance(actual, list) or len(actual) != len(expected):
+            return [path or "$" ]
+        for index, (actual_item, expected_item) in enumerate(zip(actual, expected)):
+            differences.extend(compare_projection(actual_item, expected_item,
+                                                  f"{path}[{index}]"))
+        return differences
+    return [] if actual == expected else [path or "$" ]
+
+
+def managed_ruleset_observation(repository, expected, fetch):
+    endpoint = f"repos/Samwise-OS/{repository}/rulesets?per_page=100"
+    summaries = fetch(endpoint, paginated=True)
+    if summaries.get("state") != "observed":
+        return {"state": "unknown", "differences": [],
+                "http_status": summaries.get("http_status")}
+    if (not isinstance(summaries.get("value"), list)
+            or any(not isinstance(item, dict) for item in summaries["value"])):
+        return {"state": "unknown", "differences": [], "reason": "malformed-list"}
+    matches = [item for item in summaries["value"]
+               if isinstance(item, dict) and item.get("name") == expected["name"]]
+    if len(matches) != 1:
+        return {"state": "drift", "differences": ["ruleset.name"]}
+    ruleset_id = matches[0].get("id")
+    if type(ruleset_id) is not int or ruleset_id <= 0:
+        return {"state": "unknown", "differences": [], "reason": "missing-ruleset-id"}
+    details = fetch(f"repos/Samwise-OS/{repository}/rulesets/{ruleset_id}")
+    if details.get("state") != "observed":
+        return {"state": "unknown", "differences": [],
+                "http_status": details.get("http_status")}
+    if not isinstance(details.get("value"), dict):
+        return {"state": "unknown", "differences": [], "reason": "malformed-details"}
+    differences = compare_projection(details["value"], expected)
+    return {"state": "drift" if differences else "match",
+            "differences": differences}
+
+
+def audit_managed_repositories(config, defaults, fetch=get, root=ROOT):
+    """Read back only declared repositories, their defaults, and their named rulesets."""
+    from scripts.validate_safe_settings import managed_repositories
+
+    admin, managed = managed_repositories(root)
+    root = pathlib.Path(root)
+    desired_repository = defaults["repository"]
+    observations = {}
+    comparisons = {}
+    organization = fetch(f"orgs/{config['organization']}")
+    observations["organization:identity"] = organization
+    if organization.get("state") != "observed":
+        comparisons["organization:identity"] = {"state": "unknown", "differences": []}
+        return {"scope": "declared-managed-repositories",
+                "organization": config["organization"], "admin_repository": admin,
+                "comparison_state": "incomplete", "comparisons": comparisons,
+                "observations": observations}
+    if not isinstance(organization.get("value"), dict) or organization["value"].get("id") != config["organization_id"]:
+        comparisons["organization:identity"] = {"state": "drift", "differences": ["organization.id"]}
+        return {"scope": "declared-managed-repositories",
+                "organization": config["organization"], "admin_repository": admin,
+                "comparison_state": "drift", "comparisons": comparisons,
+                "observations": observations}
+    repository_manifest = json.loads((root / "config/repositories.json").read_text(encoding="utf-8"))
+    identities = {entry["name"]: entry.get("id") for entry in repository_manifest["repositories"]}
+    identities[admin] = config.get("admin_repository_id")
+    for name in managed:
+        expected_id = identities.get(name)
+        if type(expected_id) is not int or expected_id <= 0:
+            observations[f"repository:{name}:identity"] = {"state": "unknown"}
+            comparisons[f"repository:{name}:identity"] = {
+                "state": "unknown", "differences": ["manifest.id"]
+            }
+            continue
+        details = fetch(f"repos/{config['organization']}/{name}")
+        observations[f"repository:{name}"] = details
+        if details.get("state") != "observed" or not isinstance(details.get("value"), dict):
+            comparisons[f"repository:{name}:identity"] = {"state": "unknown", "differences": []}
+            continue
+        actual = details["value"]
+        owner = actual.get("owner")
+        identity_differences = []
+        identity_unknown = ("id" not in actual or "full_name" not in actual
+                            or not isinstance(owner, dict)
+                            or "login" not in owner or "id" not in owner)
+        if actual.get("id") != expected_id:
+            identity_differences.append("id")
+        if actual.get("full_name") != f"{config['organization']}/{name}":
+            identity_differences.append("full_name")
+        if not isinstance(owner, dict):
+            identity_differences.append("owner")
+        else:
+            if str(owner.get("login", "")).casefold() != config["organization"].casefold():
+                identity_differences.append("owner.login")
+            if owner.get("id") != config["organization_id"]:
+                identity_differences.append("owner.id")
+        if identity_differences:
+            state = "unknown" if identity_unknown else "drift"
+            comparisons[f"repository:{name}:identity"] = {
+                "state": state, "differences": identity_differences
+            }
+            continue
+        comparisons[f"repository:{name}:identity"] = {"state": "match", "differences": []}
+        comparisons[f"repository:{name}:settings"] = compare(details, desired_repository)
+        repo_config_path = root / ".github" / "repos" / f"{name}.yml"
+        try:
+            repo_config = json.loads(repo_config_path.read_text(encoding="utf-8"))
+            expected_rulesets = repo_config["rulesets"]
+            if not isinstance(expected_rulesets, list) or len(expected_rulesets) != 1:
+                raise ValueError("expected exactly one managed ruleset")
+        except (OSError, KeyError, TypeError, json.JSONDecodeError, ValueError):
+            raise ValueError(f"Invalid generated ruleset declaration for {name}")
+        observation = managed_ruleset_observation(name, expected_rulesets[0], fetch)
+        observations[f"repository:{name}:managed_ruleset"] = observation
+        comparisons[f"repository:{name}:managed_ruleset"] = {
+            "state": observation["state"], "differences": observation["differences"]
+        }
+    incomplete = any(item["state"] == "unknown" for item in comparisons.values())
+    drift = any(item["state"] == "drift" for item in comparisons.values())
+    return {
+        "scope": "declared-managed-repositories",
+        "organization": config["organization"],
+        "admin_repository": admin,
+        "comparison_state": "incomplete" if incomplete else ("drift" if drift else "match"),
+        "comparisons": comparisons,
+        "observations": observations,
+    }
+
+
+def sanitized_managed_comparisons(comparisons):
+    rows = []
+    for key, value in sorted(comparisons.items()):
+        if key == "organization:identity":
+            rows.append({"name": "Samwise-OS", "control": "organization_identity",
+                         "state": value["state"],
+                         "difference_paths": value["differences"]})
+            continue
+        _, _, remainder = key.partition(":")
+        repository, separator, control = remainder.partition(":")
+        differences = value["differences"]
+        paths = [item.get("field", "unknown") if isinstance(item, dict) else item
+                 for item in differences]
+        rows.append({"name": repository,
+                     "control": control if separator else "repository_settings",
+                     "state": value["state"],
+                     "difference_paths": paths})
+    return rows
+
+
 def audit(config, defaults, fetch=get):
     org = config["organization"]
     observations = {"actor": fetch("user"), "organization": fetch(f"orgs/{org}")}
@@ -141,6 +303,9 @@ def audit(config, defaults, fetch=get):
                 observations[f"repository:{name}:workflow_permissions"],
                 config["organization_workflow_permissions"]
             )
+    managed = audit_managed_repositories(config, defaults, fetch)
+    observations.update(managed["observations"])
+    comparisons.update(managed["comparisons"])
     incomplete = any(value["state"] == "unknown" for value in observations.values())
     drift = any(value["state"] == "drift" for value in comparisons.values())
     return {
@@ -160,7 +325,7 @@ def audit(config, defaults, fetch=get):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("validate", "audit"))
+    parser.add_argument("command", choices=("validate", "audit", "audit-managed"))
     parser.add_argument("--output", type=pathlib.Path)
     args = parser.parse_args()
     config = load(ROOT / "config/organization.json")
@@ -168,8 +333,35 @@ def main():
     ruleset = load(ROOT / "config/default-branch.ruleset.json")
     validate(config, defaults, ruleset)
     if args.command == "validate":
-        print("Configuration valid; owner activation and operational acceptance remain pending.")
+        print("Configuration valid; live reconciliation and functional acceptance are verified separately.")
         return 0
+    if args.command == "audit-managed":
+        report = audit_managed_repositories(config, defaults)
+        report["schema_version"] = 1
+        report["observed_at_utc"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        from scripts.validate_safe_settings import managed_repositories
+
+        report["configuration_sha256"] = hashlib.sha256(json.dumps(
+            [config, defaults, ruleset, load(ROOT / "config/repositories.json"),
+             [load(ROOT / ".github/repos" / f"{name}.yml")
+              for name in managed_repositories(ROOT)[1]]],
+            sort_keys=True, separators=(",", ":")
+        ).encode()).hexdigest()
+        if args.output:
+            destination = args.output.resolve()
+            local = (ROOT / ".local").resolve()
+            if not destination.is_relative_to(local):
+                raise ValueError("Audit output must stay under ignored .local/")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            receipt = {key: value for key, value in report.items()
+                       if key not in ("observations", "comparisons")}
+            receipt["repositories"] = sanitized_managed_comparisons(report["comparisons"])
+            destination.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps({
+            "scope": report["scope"], "comparison_state": report["comparison_state"],
+            "repositories": sanitized_managed_comparisons(report["comparisons"]),
+        }, indent=2))
+        return {"match": 0, "drift": 2, "incomplete": 3}[report["comparison_state"]]
     report = audit(config, defaults)
     report["configuration_sha256"] = hashlib.sha256(json.dumps(
         [config, defaults, ruleset], sort_keys=True, separators=(",", ":")

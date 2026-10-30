@@ -13,19 +13,235 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        id: checkout
         with:
           persist-credentials: false
       - name: Verify repository engineering contract
+        id: standards
+        env:
+          SAMWISE_GITHUB_SHA: ${{ github.sha }}
+          SAMWISE_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          SAMWISE_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          SAMWISE_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        run: |
+          set +e
+          python3 - <<'PY'
+          import datetime
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+          import time
+
+          started = time.monotonic()
+          failures = []
+          required = ('README.md', 'AGENTS.md', '.editorconfig', '.gitattributes',
+                      '.github/CODEOWNERS', '.github/WORKSPACE.md',
+                      'docs/agents/issue-tracker.md', 'docs/agents/triage-labels.md',
+                      'docs/agents/domain.md')
+          for name in required:
+              path = pathlib.Path(name)
+              try:
+                  if not path.is_file():
+                      failures.append({'check': 'required_file', 'path': name,
+                                       'expected': 'present and nonempty', 'actual': 'missing'})
+                  elif not path.read_text(encoding='utf-8').strip():
+                      failures.append({'check': 'required_file', 'path': name,
+                                       'expected': 'present and nonempty', 'actual': 'empty'})
+              except (OSError, UnicodeError) as error:
+                  failures.append({'check': 'required_file', 'path': name,
+                                   'expected': 'present and readable UTF-8',
+                                   'actual': type(error).__name__})
+
+          devcontainer_path = pathlib.Path('.devcontainer/devcontainer.json')
+          image = None
+          try:
+              if not devcontainer_path.is_file():
+                  failures.append({'check': 'devcontainer', 'path': str(devcontainer_path),
+                                   'expected': 'valid JSON with an image pinned by sha256 digest',
+                                   'actual': 'missing'})
+              else:
+                  config = json.loads(devcontainer_path.read_text(encoding='utf-8'))
+                  if not isinstance(config, dict):
+                      raise ValueError('top-level JSON value must be an object')
+                  image = config.get('image')
+                  if not isinstance(image, str) or not re.fullmatch(
+                          r'[^\s@]+@sha256:[0-9a-f]{64}', image):
+                      failures.append({'check': 'devcontainer_image',
+                                       'path': str(devcontainer_path),
+                                       'expected': 'image reference ending in @sha256:<64 lowercase hex>',
+                                       'actual': 'invalid immutable image reference'
+                                       if isinstance(image, str) else 'missing or non-string'})
+          except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+              failures.append({'check': 'devcontainer_json',
+                               'path': str(devcontainer_path),
+                               'expected': 'valid JSON object', 'actual': str(error)})
+
+          def git(*args):
+              return subprocess.run(['git', *args], capture_output=True, text=True,
+                                    timeout=30, check=False)
+
+          try:
+              head_result = git('rev-parse', 'HEAD')
+              checkout_sha = head_result.stdout.strip() if head_result.returncode == 0 else None
+              if not checkout_sha or not re.fullmatch(r'[0-9a-f]{40,64}', checkout_sha):
+                  checkout_sha = None
+          except (OSError, subprocess.TimeoutExpired):
+              checkout_sha = None
+          try:
+              status_result = git('status', '--porcelain')
+              worktree_dirty = (bool(status_result.stdout.strip())
+                                if status_result.returncode == 0 else None)
+          except (OSError, subprocess.TimeoutExpired):
+              worktree_dirty = None
+
+          reported_head = (os.environ.get('SAMWISE_PR_HEAD_SHA')
+                           or os.environ.get('SAMWISE_GITHUB_SHA') or checkout_sha)
+          if not isinstance(reported_head, str) or not re.fullmatch(r'[0-9a-f]{40,64}', reported_head):
+              reported_head = None
+          outcome = 'fail' if failures else ('pass' if reported_head and checkout_sha
+                                              and worktree_dirty is not None else 'unknown')
+          receipt = {
+              'schema_version': 1,
+              'contract_version': '2026-10-30.1',
+              'check_name': 'baseline / standards',
+              'head_sha': reported_head,
+              'checkout_sha': checkout_sha,
+              'worktree_dirty': worktree_dirty,
+              'created_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'platform': 'github-actions-ubuntu-24.04',
+              'github': {key: value for key, value in {
+                  'repository': os.environ.get('GITHUB_REPOSITORY'),
+                  'run_id': os.environ.get('GITHUB_RUN_ID'),
+                  'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+                  'event_name': os.environ.get('GITHUB_EVENT_NAME'),
+                  'ref': os.environ.get('GITHUB_REF'),
+                  'workflow_sha': os.environ.get('SAMWISE_GITHUB_SHA'),
+                  'pull_request_number': os.environ.get('SAMWISE_PR_NUMBER'),
+                  'pull_request_head_sha': os.environ.get('SAMWISE_PR_HEAD_SHA'),
+                  'pull_request_base_sha': os.environ.get('SAMWISE_PR_BASE_SHA'),
+              }.items() if value},
+              'command': 'inline Python repository standards contract',
+              'expected': 'all required files are nonempty UTF-8; devcontainer JSON has immutable image digest',
+              'actual': 'all contract checks passed' if not failures else 'contract checks failed',
+              'exit_code': 0 if outcome == 'pass' else (1 if outcome == 'fail' else 2),
+              'duration_ms': round((time.monotonic() - started) * 1000),
+              'status': outcome,
+              'failures': failures,
+              'evidence_path': '.local/repository-baseline-receipt.json',
+              'retry_count': 0,
+              'limit_seconds': 30,
+          }
+          evidence = pathlib.Path('.local')
+          evidence.mkdir(exist_ok=True)
+          receipt_path = evidence / 'repository-baseline-receipt.json'
+          receipt_path.write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps({'schema_version': receipt['schema_version'],
+                            'check_name': receipt['check_name'], 'head_sha': reported_head,
+                            'outcome': outcome, 'failure_count': len(failures),
+                            'receipt': str(receipt_path)}, separators=(',', ':')))
+          for failure in failures:
+              print(f"FAIL {failure['check']} {failure['path']}: {failure['actual']}")
+          raise SystemExit(receipt['exit_code'])
+          PY
+      - name: Ensure repository standards receipt exists
+        if: always()
+        env:
+          STANDARDS_OUTCOME: ${{ steps.standards.outcome || 'unknown' }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome || 'unknown' }}
+          SAMWISE_GITHUB_SHA: ${{ github.sha }}
+          SAMWISE_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          SAMWISE_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          SAMWISE_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
         run: |
           python3 - <<'PY'
+          import datetime
+          import json
+          import os
           import pathlib
-          required = ('README.md', 'AGENTS.md', '.editorconfig', '.gitattributes',
-                      '.github/CODEOWNERS', 'docs/agents/issue-tracker.md',
-                      'docs/agents/triage-labels.md', 'docs/agents/domain.md')
-          failures = [name for name in required
-                      if not pathlib.Path(name).is_file()
-                      or not pathlib.Path(name).read_text(encoding='utf-8').strip()]
-          if failures:
-              raise SystemExit('Missing or empty required standards: ' + ', '.join(failures))
-          print('Repository engineering contract satisfied.')
+          import re
+          import subprocess
+
+          path = pathlib.Path('.local/repository-baseline-receipt.json')
+          try:
+              existing = json.loads(path.read_text(encoding='utf-8'))
+              if isinstance(existing, dict) and existing.get('schema_version') == 1:
+                  raise SystemExit(0)
+          except (OSError, json.JSONDecodeError):
+              pass
+          path.parent.mkdir(parents=True, exist_ok=True)
+          try:
+              result = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True,
+                                      text=True, timeout=5, check=False)
+              checkout_sha = result.stdout.strip() if result.returncode == 0 else None
+          except (OSError, subprocess.TimeoutExpired):
+              checkout_sha = None
+          if not isinstance(checkout_sha, str) or not re.fullmatch(r'[0-9a-f]{40,64}', checkout_sha):
+              checkout_sha = None
+          head_sha = os.environ.get('SAMWISE_PR_HEAD_SHA') or os.environ.get('SAMWISE_GITHUB_SHA')
+          outcome = 'fail' if os.environ.get('STANDARDS_OUTCOME') == 'failure' else 'unknown'
+          reason = ('standards validator failed before writing its receipt' if outcome == 'fail'
+                    else f"standards validator did not run successfully (checkout={os.environ.get('CHECKOUT_OUTCOME', 'unknown')})")
+          receipt = {
+              'schema_version': 1, 'contract_version': '2026-10-30.1',
+              'check_name': 'baseline / standards', 'head_sha': head_sha or None,
+              'checkout_sha': checkout_sha, 'worktree_dirty': None,
+              'created_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'platform': 'github-actions-ubuntu-24.04',
+              'github': {key: value for key, value in {
+                  'repository': os.environ.get('GITHUB_REPOSITORY'),
+                  'run_id': os.environ.get('GITHUB_RUN_ID'),
+                  'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+                  'event_name': os.environ.get('GITHUB_EVENT_NAME'),
+                  'ref': os.environ.get('GITHUB_REF'),
+                  'workflow_sha': os.environ.get('SAMWISE_GITHUB_SHA'),
+                  'pull_request_number': os.environ.get('SAMWISE_PR_NUMBER'),
+                  'pull_request_head_sha': os.environ.get('SAMWISE_PR_HEAD_SHA'),
+                  'pull_request_base_sha': os.environ.get('SAMWISE_PR_BASE_SHA'),
+              }.items() if value},
+              'command': 'inline Python repository standards contract',
+              'expected': 'required repository standards validator writes receipt',
+              'actual': 'receipt was absent or invalid', 'exit_code': None,
+              'duration_ms': 0, 'status': outcome,
+              'failures': [{'check': 'standards_runner', 'path': '.github/workflows/repository-baseline.yml',
+                            'expected': 'validator receipt exists', 'actual': reason}],
+              'evidence_path': '.local/repository-baseline-receipt.json',
+              'retry_count': 0, 'limit_seconds': 0,
+          }
+          path.write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
           PY
+      - name: Summarize repository standards receipt
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          receipt_path = pathlib.Path('.local/repository-baseline-receipt.json')
+          if receipt_path.is_file():
+              receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
+              lines = [f"## {receipt.get('check_name', 'baseline / standards')}: {receipt.get('status', 'unknown')}",
+                       '', f"Head: `{receipt.get('head_sha') or 'unknown'}`", '']
+              if receipt.get('failures'):
+                  lines.extend(f"- {item.get('check', 'contract')}: `{item.get('path', 'unknown')}` — {item.get('actual', 'failed')}"
+                               for item in receipt['failures'])
+              elif receipt.get('status') == 'pass':
+                  lines.append('- All required standards and devcontainer checks passed.')
+              else:
+                  lines.append('- Receipt identity is incomplete; this is not a pass.')
+          else:
+              lines = ['## baseline / standards: unknown', '',
+                       'Receipt missing; validation did not produce evidence.']
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write('\n'.join(lines) + '\n')
+          PY
+      - name: Upload repository standards receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, official immutable commit
+        with:
+          name: repository-baseline-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local/repository-baseline-receipt.json
+          if-no-files-found: error
+          retention-days: 14

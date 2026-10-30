@@ -1,5 +1,10 @@
 {
   "restrictedRepos": {
-    "include": ["admin", "baseline-canary"]
+    "include": [
+      ".github",
+      "admin",
+      "baseline-canary",
+      "repository-template"
+    ]
   }
 }
