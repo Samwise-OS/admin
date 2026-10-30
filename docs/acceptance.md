@@ -3,20 +3,24 @@
 Status: **PARTIAL; operational acceptance is not complete.** The four-repository
 configuration apply and independent readback pass. Provisioning and repository CI
 acceptance are recorded. Deliberate canary drift was detected, repaired, and followed
-by a successful zero-write real apply. Owner 2FA enrollment is not complete;
-the Codespaces authentication/session follow-up was unanswered and is unverified.
-Daily reconciliation is enabled by the versioned activation flag in this revision.
-The first timer-triggered invocation has not yet been observed.
+by a successful zero-write real apply. The owner account has 2FA enabled; the current
+organization member 2FA-disabled filter and outside-collaborator inventory are empty.
+The organization-level requirement is enabled and matched by owner-authenticated
+readback; the documented organization REST update does not set that field, so future
+drift requires GitHub security settings. A real
+scheduled event, `41060159080`, ran before this activation change and correctly skipped
+all credentialed steps. A credentialed scheduled reconciliation after the change
+reaches `main` remains unobserved. Codespaces runtime acceptance is tracked separately.
 
 Configuration verification and human/device acceptance are separate. A successful
-configuration readback does not complete owner 2FA or Codespaces authentication.
+configuration readback does not establish Codespaces runtime acceptance.
 GitHub Free's lack of organization-owned Codespaces budgets is an operating boundary;
 the committed devcontainer supplies a reproducible repository default and no paid
 upgrade is assumed.
 
 | ID | Acceptance area | Current result |
 | --- | --- | --- |
-| A1 | Authorized inventory and plan boundaries | **Partial.** The installed Safe-Settings App and four-repository selection are active. The organization rulesets endpoint confirms a Team-plan limitation; repository rulesets are used. Owner 2FA remains unenrolled. Codespaces scope/session acceptance is unverified. See [observed state](observed-state.md) and [org policy evidence](org-policy-evidence.md). |
+| A1 | Authorized inventory and plan boundaries | **Partial.** The installed Safe-Settings App now selects all repositories, while its program allowlist covers the four declared repositories. The organization rulesets endpoint confirms a Team-plan limitation; repository rulesets are used. Owner 2FA and the organization requirement are enabled, and all current members are compliant. Codespaces runtime acceptance is tracked separately. See [observed state](observed-state.md) and [org policy evidence](org-policy-evidence.md). |
 | A2 | Declarative provisioning and repeatability | **Pass for declared repositories.** The three adoption/content PRs merged after their required check passed; the subsequent plan-only provisioning run reported no content, metadata, label, or vulnerability-reporting changes. See [rollout evidence](organization-rollout-evidence.md). |
 | A3 | Inherited standards and template behavior | **API inheritance verified; UI acceptance partial.** The community profile API resolves code of conduct, contribution guidance and PR template to `.github`. Forms and template declarations are versioned; their rendered chooser was not independently rechecked in this run. See [provisioning evidence](provisioning-evidence.md). |
 | A4 | Default-branch policy against direct and force updates | **Partial.** A fresh unassociated commit update and a force update to canary `main` were both rejected. Deletion was tested on an isolated disposable branch with a temporary exact-ref ruleset; deletion of the real default branch was not attempted. |
@@ -35,7 +39,6 @@ four-repository match, and injected drift receipt are appended to
 [organization rollout evidence](organization-rollout-evidence.md). Sanitized public
 evidence excludes the complete private inventory and raw API responses.
 
-Completion remains open until drift repair and the next zero-write apply/readback pass,
-the schedule activation decision is reviewed, and the owner completes the outstanding
-2FA enrollment. Do not represent the unanswered Codespaces session flow as accepted.
-No owner 2FA requirement is enabled before enrollment and recovery readiness.
+Completion remains open until a scheduled event after activation completes
+reconciliation and independent readback, then the temporary five-minute cadence is
+removed through a normal reviewed change.

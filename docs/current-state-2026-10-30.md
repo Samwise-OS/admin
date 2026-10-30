@@ -16,15 +16,14 @@ Before further mutation, recheck remote main, PR heads, configuration and audit 
 
 ## Activation and remaining owner actions
 
-This revision enables daily native reconciliation at **06:17 UTC**, with no LLM calls.
-The first timer-triggered invocation remains unobserved. Manual runs have exercised
-the same reconciliation and independent readback. Confirm the activation PR is merged
-and remote `config/organization.json` reports `schedule_enabled: true` before relying
-on the schedule.
+This revision declares daily native reconciliation at **06:17 UTC**, with no LLM calls.
+Scheduled run `41060159080` occurred before the activation change reached `main`; the
+gate skipped all credentialed work. A post-activation scheduled run must complete
+reconciliation and independent readback before relying on the schedule.
 
-1. `Samwise-x` must enroll in 2FA before organization-wide 2FA can safely be required. Do not enable the requirement while the owner is unenrolled.
+1. The owner account has 2FA enabled; the member 2FA-disabled filter is empty and there are no outside collaborators. The organization requirement is enabled and owner-authenticated API readback matches the declaration.
 2. The Codespaces scope authorization flow timed out. A fresh official `gh auth refresh -h github.com -s codespace` requires owner interaction before a real environment smoke test can run. A pinned devcontainer declaration is deployed; a live Codespace build is not claimed.
-3. The SafeSettings installation still selects the existing four repositories. To cover future repositories without per-repository installation enrollment, the owner must authorize **All repositories** for the same App at [installation settings](https://github.com/organizations/Samwise-OS/settings/installations/176024067). App permissions do not change; manifest scope continues to bound actual reconciliation. Read back the installation selection and version its observed state after that action.
+3. The Safe-Settings installation now selects **All repositories** for installation `176024067`. The manifest and generated program allowlist continue to bound current reconciliation to four declared repositories; no App permission change was made.
 
 Non-owner actor permissions and the rendered issue chooser remain explicitly partial
 in [acceptance](acceptance.md). Do not close the parent foundation issue as fully
@@ -42,3 +41,9 @@ Canonical instructions are `AGENTS.md`, `CONTEXT.md`, the ADRs, the specificatio
 GitHub issues #1/#3/#4/#5. Use `mattpocock-skills:implement`, `:tdd`, and separate
 `:code-review` axes. Route execution through DevOps Automator on GPT-6 Luna with
 bounded context. Do not treat older temporary handoffs as current truth.
+
+## New authenticated observations — 2026-10-30
+
+The latest owner-authenticated check confirms the owner account has 2FA enabled, the two current organization members have no 2FA-disabled accounts, and there are no outside collaborators. The organization requirement is enabled and readback matches the declaration. The controller treats it as manual-only if it drifts because GitHub's documented organization-update REST request does not include this field.
+
+The Safe-Settings installation now selects all repositories (installation `176024067`), while the reviewed manifest allowlist still limits current managed scope to four repositories. Scheduled event `41060159080` ran before activation reached `main`: it passed the activation guard, skipped all credentialed steps, and does not count as active schedule acceptance. A later scheduled event on the activated `main` revision must complete reconciliation and independent readback.

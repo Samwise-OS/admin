@@ -4,9 +4,10 @@
   "organization_id": 349008063,
   "admin_repository": "admin",
   "admin_repository_id": 1436238530,
-  "state": "policy-applied-2fa-enrollment-gate",
+  "state": "policy-applied-2fa-enforced-schedule-acceptance-pending",
   "organization_settings": {
     "default_repository_permission": "none",
+    "two_factor_requirement_enabled": true,
     "members_can_create_repositories": false,
     "members_can_create_public_repositories": false,
     "members_can_create_private_repositories": false,
@@ -53,7 +54,7 @@
     "authenticated": true,
     "app_id": 5504298,
     "installation_id": 176024067,
-    "repository_selection": "selected",
+    "repository_selection": "all",
     "repositories": ["admin", ".github", "repository-template", "baseline-canary"],
     "permissions": {
       "administration": "write",
@@ -66,8 +67,6 @@
     "schedule_enabled": true
   },
   "owner_decisions_pending": [
-    "Owner must complete 2FA enrollment before organization-wide 2FA enforcement",
-    "Codespaces authentication must be completed for a real environment acceptance run",
-    "Future repository App enrollment requires owner installation authorization; current installation selects four repositories"
+    "Wait for a scheduled event after the activation change reaches main and verify credentialed reconciliation plus independent readback; then remove the temporary five-minute acceptance cadence"
   ]
 }

@@ -27,9 +27,10 @@ must pass before any credentialed reconciliation step.
 
 The Safe-Settings App is the repository-settings writer. Its installed selection and
 permissions are separate from the versioned manifest and its generated allowlist.
-The App currently selects `admin`, `.github`, `repository-template`, and
-`baseline-canary`, with Repository Administration write, Contents read, Checks write,
-and Metadata read. It does not own organization policy, team membership, repository
+The App installation selects all repositories, with Repository Administration write,
+Contents read, Checks write, and Metadata read. The manifest and generated allowlist
+still bound current reconciliation to `admin`, `.github`, `repository-template`, and
+`baseline-canary`. It does not own organization policy, team membership, repository
 creation, or App installation changes. The authenticated owner CLI controller in
 `scripts/organization.py` remains the writer for the explicitly declared organization
 and team fields; there is no competing organization-policy writer.
@@ -115,12 +116,15 @@ writes, and excludes the expected Safe-Settings check-run publication. Full
 Safe-Settings output is kept only in the ephemeral runner's ignored `.local/` log;
 only the sanitized trace receipt and sanitized post-apply comparison are uploaded.
 
-A daily 06:17 UTC schedule is present but its activation flag is
-`safe_settings.schedule_enabled: false`. The flag is checked before any workflow step
-references the App credentials. Enabling it is a reviewed manifest change after
-four-repository readback, an idempotent zero-write rerun, and the canary acceptance
-sequence. Scheduled execution has authority only over shared repository settings.
-Organization policies and team state remain on the explicit owner CLI path.
+A daily 06:17 UTC schedule is declared enabled by the activation change. A temporary
+five-minute acceptance cadence is also declared; remove it through a normal reviewed
+change immediately after one successful post-activation schedule run. Scheduled event
+`41060159080` ran while `main` still declared the flag false; the gate skipped
+credentialed work, so the run proves the guard only. A scheduled event after the
+activation change reaches `main` must complete reconciliation and independent
+readback before scheduled operation is accepted. Scheduled execution has authority
+only over shared repository settings. Organization policies and team state remain on
+the explicit owner CLI path.
 
 The evidence sequence is preview, reviewed apply, independent readback, then a second
 apply that produces zero managed configuration writes and still passes independent
@@ -142,9 +146,10 @@ declared operating boundaries, not hidden enforcement claims.
 ## Current gates
 
 The authenticated preview, initial apply, and zero-write second apply are recorded in
-`docs/reconciliation-evidence-2026-10-30.md`; live state readback there covers
-`admin` and `baseline-canary`. Manifest generation now declares all four selected
-repositories, and the independent readback is required to prove their current state
-before scheduled automation is enabled. The live canary functional suite is tracked
-separately in `docs/acceptance.md`. The owner must finish and verify 2FA enrollment
-before organization-wide 2FA enforcement is enabled.
+`docs/reconciliation-evidence-2026-10-30.md`; later evidence covers all four declared
+repositories and zero-write idempotence. The live canary functional suite is tracked
+separately in `docs/acceptance.md`. The owner account has 2FA enabled, current members
+have no 2FA-disabled accounts, and there are no outside collaborators. The desired
+organization 2FA requirement is declared true and live readback matches. The
+documented organization REST update request does not accept that field, so the
+controller reports any future drift as manual-only.

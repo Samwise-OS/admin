@@ -77,12 +77,17 @@ repository causes token creation or readback to fail; update and verify the App'
 selected repositories as a separate owner operation.
 
 The daily 06:17 UTC schedule is protected by the versioned
-`safe_settings.schedule_enabled` flag, currently false. The gate executes before any
-step references the App key. Keep it disabled until full four-repository readback,
-idempotent zero-write rerun, and canary functional acceptance are recorded. Updating
-that flag requires an ordinary reviewed change on `main`. The schedule owns only
-shared repository settings; organization defaults, Actions policies, team membership
-and repository grants stay in the separate authenticated owner CLI controller.
+`safe_settings.schedule_enabled` flag, now declared `true`. A temporary five-minute
+acceptance cadence is included so one genuine post-activation scheduled run can be
+observed promptly; remove that cadence through a normal reviewed change immediately
+after a successful run. Scheduled run
+`41060159080` on 2026-10-30 exercised the timer event but was gated because the then-
+current `main` manifest still declared `false`; all credentialed steps were skipped.
+Treat it as gate evidence only. After the activation change reaches `main`, a later
+scheduled event must complete reconciliation and independent readback before
+scheduled operation is accepted. The schedule owns only shared repository settings;
+organization defaults, Actions policies, team membership and repository grants stay
+in the separate authenticated owner CLI controller.
 
 Safe-Settings credentials are environment-scoped to `governance`, whose allowed
 deployment branch must be `main`. Do not expose them to PR code, `pull_request_target`,
@@ -98,7 +103,12 @@ role, reads before writing, records partial failures and reads back each policy.
 Fields not supported by the documented update request are reported as manual-only
 drift. It only adds explicitly listed existing users, does not accept invitations or
 remove unrelated members, and defers a repository grant until that repository exists.
-2FA enforcement remains pending until the owner completes and verifies enrollment.
+The manifest declares `two_factor_requirement_enabled: true`. The owner account has
+2FA enabled; the authenticated member inventory contains two members, zero members
+with 2FA disabled, and zero outside collaborators. The organization requirement is
+enabled and the authenticated controller readback matches. GitHub's documented Update
+an organization REST request does not accept this field, so future drift on it is
+reported as manual-only and must be corrected through organization security settings.
 
 ## Recovery and retained evidence
 
