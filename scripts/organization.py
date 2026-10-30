@@ -5,9 +5,10 @@ import pathlib
 import subprocess
 import sys
 
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from scripts.validate_safe_settings import managed_repositories
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
 API_VERSION = "2022-11-28"
 ORG_API_WRITABLE_FIELDS = {
     "default_repository_permission", "members_can_create_repositories",

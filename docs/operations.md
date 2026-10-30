@@ -66,6 +66,13 @@ sanitized request receipt plus independent post-apply readback. Repository setti
 and named rulesets are read after the Safe-Settings step even when that step fails; a
 drift or unknown read fails the job.
 
+The readback uses a short-lived token from the installed Safe-Settings App, limited
+to the manifest-derived repository list and downscoped to Administration read. The
+workflow pins the official `actions/create-github-app-token` v3.0.0 tag target by
+commit and lets the action revoke the token at job completion. An unselected new
+repository causes token creation or readback to fail; update and verify the App's
+selected repositories as a separate owner operation.
+
 The daily 06:17 UTC schedule is protected by the versioned
 `safe_settings.schedule_enabled` flag, currently false. The gate executes before any
 step references the App key. Keep it disabled until full four-repository readback,

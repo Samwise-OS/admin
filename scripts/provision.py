@@ -75,6 +75,8 @@ def validate_repositories(repositories):
         raise ValueError("Manifest contains malformed or duplicate repository entries")
     for desired in repositories:
         name = desired.get("name")
+        if name == "admin":
+            raise ValueError("admin is the reserved controller repository and cannot be provisioned as bootstrap content")
         if name != ".github" and (not isinstance(name, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name)):
             raise ValueError(f"Invalid repository name: {name}")
         if desired.get("visibility") != "public" or desired.get("source") not in ("community", "template"):

@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, observed 2026-10-27
+        id: checkout
         with:
           persist-credentials: false
       - name: Run required secretless validations
@@ -29,6 +30,73 @@ jobs:
           SAMWISE_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           SAMWISE_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
         run: python3 scripts/doctor.py --output .local/validation-receipt.json
+      - name: Ensure failure receipt exists
+        if: always()
+        env:
+          DOCTOR_OUTCOME: ${{ steps.doctor.outcome || 'unknown' }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome || 'unknown' }}
+          SAMWISE_GITHUB_SHA: ${{ github.sha }}
+          SAMWISE_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          SAMWISE_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          SAMWISE_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        run: |
+          python3 - <<'PY'
+          import datetime
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+
+          path = pathlib.Path('.local/validation-receipt.json')
+          try:
+              existing = json.loads(path.read_text(encoding='utf-8'))
+              if isinstance(existing, dict) and existing.get('schema_version') == 1:
+                  raise SystemExit(0)
+          except (OSError, json.JSONDecodeError):
+              pass
+          path.parent.mkdir(parents=True, exist_ok=True)
+          try:
+              result = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True,
+                                      text=True, timeout=5, check=False)
+              checkout_sha = result.stdout.strip() if result.returncode == 0 else None
+          except (OSError, subprocess.TimeoutExpired):
+              checkout_sha = None
+          if not isinstance(checkout_sha, str) or not re.fullmatch(r'[0-9a-f]{40,64}', checkout_sha):
+              checkout_sha = None
+          head_sha = os.environ.get('SAMWISE_PR_HEAD_SHA') or os.environ.get('SAMWISE_GITHUB_SHA')
+          outcome = 'fail' if os.environ.get('DOCTOR_OUTCOME') == 'failure' else 'unknown'
+          reason = ('validator failed before writing its receipt' if outcome == 'fail'
+                    else f"validator did not run successfully (checkout={os.environ.get('CHECKOUT_OUTCOME', 'unknown')})")
+          receipt = {
+              'schema_version': 1, 'check_version': '2026-10-30.2',
+              'head_sha': head_sha or None, 'checkout_sha': checkout_sha,
+              'worktree_dirty': None,
+              'created_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'platform': 'github-actions-ubuntu-24.04', 'outcome': outcome,
+              'diagnostics': [reason], 'checks': [{
+                  'name': 'validation_runner', 'status': outcome, 'reason': reason,
+                  'expected': 'doctor writes a schema-1 receipt after all required checks',
+                  'actual_exit_code': None, 'actual': 'receipt was absent or invalid',
+                  'duration_ms': 0, 'retry_count': 0, 'limit_seconds': 0,
+                  'evidence_path': '.local/validation-logs/validation_runner.txt'}],
+              'github': {key: value for key, value in {
+                  'repository': os.environ.get('GITHUB_REPOSITORY'),
+                  'run_id': os.environ.get('GITHUB_RUN_ID'),
+                  'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+                  'event_name': os.environ.get('GITHUB_EVENT_NAME'),
+                  'ref': os.environ.get('GITHUB_REF'),
+                  'workflow_sha': os.environ.get('SAMWISE_GITHUB_SHA'),
+                  'pull_request_number': os.environ.get('SAMWISE_PR_NUMBER'),
+                  'pull_request_head_sha': os.environ.get('SAMWISE_PR_HEAD_SHA'),
+                  'pull_request_base_sha': os.environ.get('SAMWISE_PR_BASE_SHA'),
+              }.items() if value},
+          }
+          path.write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
+          log = pathlib.Path('.local/validation-logs/validation_runner.txt')
+          log.parent.mkdir(parents=True, exist_ok=True)
+          log.write_text(reason + '\n', encoding='utf-8')
+          PY
       - name: Summarize validation receipt
         if: always()
         run: |

@@ -60,11 +60,15 @@ or unknown fails the workflow. The receipt includes only comparison states and
 difference paths, never the full inventory. Full owner inventory remains a separate
 local authenticated operation under `docs/operations.md`.
 
-The independent audit uses the workflow's read-only `GITHUB_TOKEN` against the public
-repositories. It does not expand the Safe-Settings App's permissions or installation.
-If GitHub denies a required read, the run fails closed as unknown. No scheduled
-reconciliation should be treated as accepted until a live run proves these reads and
-the current manifests' full managed scope.
+The independent audit receives a short-lived token from the installed Safe-Settings
+App after reconciliation. The official `actions/create-github-app-token` v3.0.0
+source is pinned to the immutable commit resolved from its official GitHub tag. The
+workflow derives the token's repository scope from the organization and repository
+manifests and downscopes its Administration permission to read. The action revokes
+the token after the job. This does not expand the App's installed repository selection
+or installation permissions. If GitHub denies a required read, the run fails closed
+as unknown. No scheduled reconciliation should be treated as accepted until a live
+run proves these reads and the current manifests' full managed scope.
 
 ## New repository coverage
 

@@ -1,6 +1,7 @@
 import json
 import contextlib
 import io
+import os
 import pathlib
 import subprocess
 import tempfile
@@ -14,7 +15,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class DoctorCliTests(unittest.TestCase):
-    def run_doctor(self, responses):
+    def run_doctor(self, responses, env=None):
         output_dir = ROOT / ".local"
         output_dir.mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(dir=output_dir) as temporary:
@@ -27,7 +28,9 @@ class DoctorCliTests(unittest.TestCase):
                     return subprocess.CompletedProcess(command, 0, "", "")
                 return responses.pop(0)
 
-            with patch.object(doctor.subprocess, "run", side_effect=run):
+            with patch.dict(os.environ, env or {}, clear=True), \
+                    patch.object(doctor.subprocess, "run", side_effect=run), \
+                    patch.object(doctor.platform, "system", return_value="test"):
                 with contextlib.redirect_stdout(io.StringIO()):
                     code = doctor.main(["--output", str(receipt_path)])
             return code, json.loads(receipt_path.read_text(encoding="utf-8"))
@@ -115,13 +118,14 @@ class DoctorCliTests(unittest.TestCase):
             subprocess.CompletedProcess([], 0, "Safe-Settings config valid.\n", ""),
             subprocess.CompletedProcess([], 0, "Ran 25 tests in 0.9s\n\nOK\n", ""),
         ]
-        with patch.dict("os.environ", {
+        code, receipt = self.run_doctor(responses, {
             "SAMWISE_GITHUB_SHA": "b" * 40,
             "SAMWISE_PR_HEAD_SHA": "c" * 40,
             "SAMWISE_PR_BASE_SHA": "d" * 40,
             "SAMWISE_PR_NUMBER": "42",
-        }):
-            code, receipt = self.run_doctor(responses)
+            "GITHUB_REPOSITORY": "Samwise-OS/admin",
+            "GITHUB_RUN_ID": "41010588323",
+        })
         self.assertEqual(0, code)
         self.assertEqual("c" * 40, receipt["head_sha"])
         self.assertEqual("a" * 40, receipt["checkout_sha"])

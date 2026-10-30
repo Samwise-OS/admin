@@ -112,6 +112,13 @@ class GitHubSettingsApi:
 
 
 class ProvisionTests(unittest.TestCase):
+    def test_controller_repository_is_reserved_from_bootstrap_manifest(self):
+        with self.assertRaisesRegex(ValueError, "reserved controller repository"):
+            provision.validate_repositories([{
+                "name": "admin", "visibility": "public", "source": "community",
+                "description": "Controller", "is_template": False,
+            }])
+
     def test_labels_create_missing_update_only_differences_and_preserve_unrelated(self):
         desired = [
             {"name": "bug", "color": "d73a4a", "description": "Something isn't working"},

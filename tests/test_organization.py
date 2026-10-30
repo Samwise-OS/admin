@@ -2,6 +2,7 @@ import importlib.util
 import json
 import pathlib
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -13,6 +14,14 @@ SPEC.loader.exec_module(organization)
 
 
 class OrganizationPolicyTests(unittest.TestCase):
+    def test_direct_cli_entrypoint_can_show_help_without_authentication(self):
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "scripts/organization.py"), "--help"],
+            cwd=ROOT, capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("plan", result.stdout)
+
     def setUp(self):
         self.config = {"organization": "Samwise-OS", "organization_id": 349008063,
                        "organization_settings": {"default_repository_permission": "none"},

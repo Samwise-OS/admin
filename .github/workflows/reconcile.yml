@@ -193,12 +193,84 @@ jobs:
             exit 1
           }
 
+      - name: Prepare declared repository scope for read-only audit token
+        id: audit_scope
+        if: always() && steps.activation.outputs.execute == 'true' && steps.full_sync.outcome != 'skipped'
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          organization = json.loads(pathlib.Path('config/organization.json').read_text(encoding='utf-8'))
+          repositories = json.loads(pathlib.Path('config/repositories.json').read_text(encoding='utf-8'))
+          names = sorted([organization['admin_repository'],
+                          *(item['name'] for item in repositories['repositories'])])
+          if organization['organization'] != 'Samwise-OS' or repositories['organization'] != 'Samwise-OS':
+              raise SystemExit('Refusing to mint a token for an unexpected organization')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f"owner={organization['organization']}\n")
+              output.write('repositories<<REPOSITORIES\n')
+              output.write('\n'.join(names) + '\n')
+              output.write('REPOSITORIES\n')
+          print(json.dumps({'owner': organization['organization'], 'repository_count': len(names)},
+                           separators=(',', ':')))
+          PY
+
+      - name: Create short-lived read-only GitHub App token for managed-state audit
+        id: audit_token
+        if: always() && steps.activation.outputs.execute == 'true' && steps.audit_scope.outcome == 'success'
+        uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0 official tag target; SHA resolved via GitHub API
+        with:
+          app-id: ${{ vars.SAFE_SETTINGS_APP_ID }}
+          private-key: ${{ secrets.SAFE_SETTINGS_PRIVATE_KEY }}
+          owner: ${{ steps.audit_scope.outputs.owner }}
+          repositories: ${{ steps.audit_scope.outputs.repositories }}
+          permission-administration: read
+
       - name: Independently read back managed repository defaults and rulesets
         id: readback
+        if: always() && steps.activation.outputs.execute == 'true' && steps.audit_token.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.audit_token.outputs.token }}
+        run: python3 scripts/audit.py audit-managed --output .local/managed-audit-receipt.json
+
+      - name: Ensure a sanitized managed-readback failure receipt exists
         if: always() && steps.activation.outputs.execute == 'true' && steps.full_sync.outcome != 'skipped'
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/audit.py audit-managed --output .local/managed-audit-receipt.json
+          TOKEN_OUTCOME: ${{ steps.audit_token.outcome }}
+          SCOPE_OUTCOME: ${{ steps.audit_scope.outcome }}
+        run: |
+          python3 - <<'PY'
+          import datetime
+          import json
+          import os
+          import pathlib
+
+          path = pathlib.Path('.local/managed-audit-receipt.json')
+          if not path.is_file():
+              reason = ('audit_scope_failed' if os.environ['SCOPE_OUTCOME'] != 'success'
+                        else 'audit_token_failed' if os.environ['TOKEN_OUTCOME'] != 'success'
+                        else 'audit_failed_without_receipt')
+              receipt = {
+                  'schema_version': 1,
+                  'scope': 'declared-managed-repositories',
+                  'organization': 'Samwise-OS',
+                  'comparison_state': 'incomplete',
+                  'outcome': 'unknown',
+                  'reason_code': reason,
+                  'workflow_sha': os.environ.get('GITHUB_SHA'),
+                  'run_id': os.environ.get('GITHUB_RUN_ID'),
+                  'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+                  'observed_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                  'repositories': [],
+              }
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
+              print(json.dumps({'managed_readback_receipt': str(path),
+                                'outcome': receipt['outcome'], 'reason_code': reason},
+                               separators=(',', ':')))
+          PY
 
       - name: Summarize sanitized reconciliation evidence
         if: always() && steps.activation.outputs.execute == 'true'
@@ -234,7 +306,7 @@ jobs:
           retention-days: 14
 
       - name: Upload sanitized managed readback receipt
-        if: always() && steps.readback.outcome != 'skipped'
+        if: always() && steps.full_sync.outcome != 'skipped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: managed-readback-${{ github.run_id }}-${{ github.run_attempt }}

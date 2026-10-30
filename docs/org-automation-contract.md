@@ -90,7 +90,11 @@ cancelling each other.
 
 After the writer, `scripts/audit.py audit-managed` independently reads the declared
 organization ID, each repository's immutable ID, canonical name and owner ID, shared
-repository defaults, and each managed ruleset's complete details. It projects only
+repository defaults, and each managed ruleset's complete details. In Actions it uses
+a short-lived token from the existing App, scoped to the manifest-derived repository
+list and downscoped to Administration read. The official
+`actions/create-github-app-token` v3.0.0 source is pinned to the commit resolved from
+its official GitHub tag; the action revokes the token after the job. It projects only
 declared fields, requires the exact rule list and parameters, and leaves unrelated
 rulesets alone. A missing or denied read is unknown; missing, extra, inactive,
 misconfigured, or bypassed managed rules are drift. Either state fails the run. This
