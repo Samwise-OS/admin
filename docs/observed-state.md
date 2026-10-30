@@ -71,5 +71,29 @@ The organization rulesets endpoint returned HTTP 403 with an explicit GitHub Tea
 upgrade requirement. The auditor classifies this as `unsupported_plan`, not as absent
 configuration or an unexplained read failure. The ignored `.local/org-policy-results.json`
 contains sanitized live readback and two consecutive zero-write policy and team passes.
-Overall acceptance remains false because owner 2FA is open, Safe-Settings authentication
-is pending, and the canary suite has not run.
+That historical statement predates Safe-Settings activation and the canary functional
+suite. Current evidence follows; consult `docs/acceptance.md` for remaining gates.
+
+## Current managed-repository verification
+
+On 2026-10-30, `Samwise-OS/admin` configuration commit `c5f1488` ran the four-repository
+Safe-Settings apply in [run 41011641487](https://github.com/Samwise-OS/admin/actions/runs/41011641487).
+The run succeeded with five managed configuration mutations. Its sanitized independent
+audit matched repository identity, settings and the named ruleset for `admin`, `.github`,
+`repository-template` and `baseline-canary`. A separate authenticated owner-CLI
+readback also matched all four; the sanitized local result is retained at
+`.local/all-four-owner-readback.json` and is not published because the full owner audit
+contains private inventory.
+
+The authenticated Safe-Settings App is active and selected for those four repositories;
+authentication is no longer pending. A subsequent deliberate change of
+`baseline-canary.has_wiki` was detected by targeted audit as the sole drift, recorded in
+`.local/drift-injection-2026-10-30.json`. Repair run `41011804776` succeeded with one
+managed mutation and match; real repeat `41011894264` succeeded with zero managed
+mutations and match. The daily scheduled workflow flag is enabled in this revision;
+its first timer invocation is not yet observed. The live canary
+functional outcomes are recorded in `docs/canary-acceptance-evidence.md`.
+
+Owner 2FA enrollment remains incomplete, so organization-wide 2FA enforcement stays
+off. The Codespaces scope/session follow-up was unanswered and remains unverified. No
+organization-owned Codespaces budget or policy is claimed under the current Free plan.

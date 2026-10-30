@@ -26,3 +26,22 @@ reconciliation, which are separate acceptance steps.
 The first local invocation hit a Windows CP1252 decoding exception while reading GitHub
 CLI output after provisioning had begun. The rerun set `PYTHONUTF8=1`; the provisioner
 reused the deterministic PRs and the follow-up plan confirmed zero remaining changes.
+
+## Four-repository Safe-Settings apply and drift detection
+
+Configuration revision `c5f1488` completed the all-four apply in
+[run 41011641487](https://github.com/Samwise-OS/admin/actions/runs/41011641487):
+success with five managed configuration mutations. The sanitized workflow artifact's
+managed audit returned `MATCH` for repository identity, shared settings and the exact
+named ruleset on `admin`, `.github`, `repository-template` and `baseline-canary`. A
+separate authenticated owner-CLI audit also matched all four; its sanitized output is
+retained locally at `.local/all-four-owner-readback.json` because the full audit
+contains private inventory.
+
+A controlled drift injection then changed `baseline-canary.has_wiki` from the declared
+`false` value to `true` on repository ID `1436487640`. The targeted audit exited 2 and
+reported only `baseline-canary.has_wiki` as drift in
+`.local/drift-injection-2026-10-30.json`. This confirms detection of the intended
+field-level drift. Repair, successful readback and the next zero-write apply remain
+pending; the scheduled workflow activation flag stays false until those checks and the
+parent's explicit activation decision are complete.

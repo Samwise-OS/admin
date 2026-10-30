@@ -62,12 +62,12 @@
       "metadata": "read"
     },
     "last_nop_run": 41008940440,
-    "last_apply_run": 41009078745,
-    "schedule_enabled": false
+    "last_apply_run": 41011894264,
+    "schedule_enabled": true
   },
   "owner_decisions_pending": [
     "Owner must complete 2FA enrollment before organization-wide 2FA enforcement",
-    "SafeSettings scheduled reconciliation remains disabled pending operational acceptance",
-    "Canary enforcement suite and operational acceptance remain incomplete"
+    "Codespaces authentication must be completed for a real environment acceptance run",
+    "Future repository App enrollment requires owner installation authorization; current installation selects four repositories"
   ]
 }

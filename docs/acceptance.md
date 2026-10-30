@@ -1,39 +1,41 @@
 # Operational acceptance
 
-Status: **PARTIAL; OPERATIONAL ACCEPTANCE NOT COMPLETE**. Organization policy changes
-have authenticated readback and two zero-write reconciliation passes. The canary suite
-has not run and remaining live gates are tracked below.
+Status: **PARTIAL; operational acceptance is not complete.** The four-repository
+configuration apply and independent readback pass. Provisioning and repository CI
+acceptance are recorded. Deliberate canary drift was detected, repaired, and followed
+by a successful zero-write real apply. Owner 2FA enrollment is not complete;
+the Codespaces authentication/session follow-up was unanswered and is unverified.
+Daily reconciliation is enabled by the versioned activation flag in this revision.
+The first timer-triggered invocation has not yet been observed.
 
-Every live case records the configuration commit/digest, organization and repository
-IDs, actor/effective permission, endpoint and request/run/PR identifiers, current
-commit SHA, expected/actual behavior and readback. Redact credentials. A denied
-permission or missing entitlement is a blocked/unknown test, never a pass.
+Configuration verification and human/device acceptance are separate. A successful
+configuration readback does not complete owner 2FA or Codespaces authentication.
+GitHub Free's lack of organization-owned Codespaces budgets is an operating boundary;
+the committed devcontainer supplies a reproducible repository default and no paid
+upgrade is assumed.
 
-| ID | Test | Required result | Status |
-| --- | --- | --- | --- |
-| A1 | Full authorized inventory | Owner and credential independently verified; complete repo/member/team/App/policy inventory, no unreadable required controls | Partial: owner identity confirmed; invitation preserved; organization rulesets explicitly unsupported on Free; 2FA off; App authentication pending. Governance run `40617769323` succeeded on commit `28908af`; this confirms CI only, not operational acceptance. |
-| A2 | Declarative provisioning | Approved canary generated with expected files/settings/grants; second identical operation creates nothing | Partial: `.github`, template and canary exist; Maintainers grants read back; generated content and duplicate-free provisioning retry not yet verified |
-| A3 | Inherited standards | Canary without local overrides displays public `.github` defaults; repository-local CODEOWNERS and license handled explicitly | Pending community/template repositories |
-| A4 | Effective default-branch policy | Intended non-bypass contributor cannot direct push, force push or delete the protected default branch | Pending actor, canary and rule activation |
-| A5 | CI rejection | Deliberately failing PR cannot merge; missing/renamed required check cannot merge | Pending real workflow/ruleset |
-| A6 | Positive path | Corrected current-head PR runs expected CI and merges normally with selected review policy, without bypass | Pending review decision |
-| A7 | Check identity | Wrong-App same-name check rejected; alternate Actions workflow substitution tested and result documented | Pending; Actions App binding alone is insufficient |
-| A8 | Freshness | New commit causes new CI and declared stale-review behavior | Pending |
-| A9 | Effective permissions | Test actor cannot perform prohibited admin/member operations; validation jobs cannot use organization write credentials | Partial: member creation, deletion and visibility restrictions read back; actor tests pending |
-| A10 | Drift and idempotence | Approved reversible metadata drift detected, repaired, read back; next sync zero semantic changes AND zero writes | Organization policies, team membership and existing grants pass two zero-write repeats; drift injection and cross-resource recovery pending |
-| A11 | Failure recovery | Partial sync fails visibly; approved retry converges; designated owner can recover a bad canary rule | Pending |
-| A12 | Lifecycle | Approved canary retained or archived; inventory reflects status; no deletion | Pending retention choice |
+| ID | Acceptance area | Current result |
+| --- | --- | --- |
+| A1 | Authorized inventory and plan boundaries | **Partial.** The installed Safe-Settings App and four-repository selection are active. The organization rulesets endpoint confirms a Team-plan limitation; repository rulesets are used. Owner 2FA remains unenrolled. Codespaces scope/session acceptance is unverified. See [observed state](observed-state.md) and [org policy evidence](org-policy-evidence.md). |
+| A2 | Declarative provisioning and repeatability | **Pass for declared repositories.** The three adoption/content PRs merged after their required check passed; the subsequent plan-only provisioning run reported no content, metadata, label, or vulnerability-reporting changes. See [rollout evidence](organization-rollout-evidence.md). |
+| A3 | Inherited standards and template behavior | **API inheritance verified; UI acceptance partial.** The community profile API resolves code of conduct, contribution guidance and PR template to `.github`. Forms and template declarations are versioned; their rendered chooser was not independently rechecked in this run. See [provisioning evidence](provisioning-evidence.md). |
+| A4 | Default-branch policy against direct and force updates | **Partial.** A fresh unassociated commit update and a force update to canary `main` were both rejected. Deletion was tested on an isolated disposable branch with a temporary exact-ref ruleset; deletion of the real default branch was not attempted. |
+| A5 | Required-check rejection | **Pass.** A failing check and a missing required check prevented normal PR merges. A same-name legacy status from `Samwise-x` did not satisfy the App-bound requirement. |
+| A6 | Normal positive PR path | **Pass.** Canary PR #4 passed the real reusable standards workflow and merged normally without `--admin`. |
+| A7 | Check producer identity | **Verified with a trust limitation.** The wrong-App same-name status was rejected. An alternate Actions workflow using the same GitHub Actions App could emit the required context and pass; App binding does not bind a check to a workflow implementation. |
+| A8 | Freshness and stale-review behavior | **Not fully tested.** New PR heads produced fresh Actions runs during the acceptance sequence, but a separate stale-review behavior test is not recorded. |
+| A9 | Effective actor permissions and credential boundaries | **Partial.** Organization/team configuration is read back, and CI uses read-only `contents` permission. A non-owner actor was not available to test prohibited member/admin operations. Future member onboarding requires an actual-actor permissions test; do not infer a pass from the current solo-owner configuration. |
+| A10 | Drift detection, repair, and idempotence | **Pass.** Run [41011641487](https://github.com/Samwise-OS/admin/actions/runs/41011641487) applied all four repositories. The sole injected `baseline-canary.has_wiki` drift was detected with exit 2; repair [41011804776](https://github.com/Samwise-OS/admin/actions/runs/41011804776) made exactly one managed mutation and read back match. Real repeat [41011894264](https://github.com/Samwise-OS/admin/actions/runs/41011894264) made zero managed mutations and independently read back match. |
+| A11 | Failure recovery | **Verified for exercised failures.** Retained CI diagnostics exposed a CI-only fixture defect; missing administrative visibility failed readback rather than passing; the corrected readback and deliberate setting-drift repair converged. Arbitrary failure modes are not certified by these cases. |
+| A12 | Canary lifecycle and cleanup | **Pass for retention and isolated cleanup.** `baseline-canary` remains present with its history intact. The temporary deletion fixture ruleset and disposable branch were removed after the isolated deletion test; the real canary was not deleted. |
 
-Do not perform negative writes on `admin` or delete a real default branch. Use the
-approved disposable canary with a known recovery path. Owner operations do not prove
-contributor restrictions. Do not weaken production policy to manufacture a green test.
+The detailed functional cases, run IDs, refs and rule-suite evaluations are in
+[canary acceptance evidence](canary-acceptance-evidence.md). The five-write apply,
+four-repository match, and injected drift receipt are appended to
+[organization rollout evidence](organization-rollout-evidence.md). Sanitized public
+evidence excludes the complete private inventory and raw API responses.
 
-Known trust boundary: on Free, per-repository named checks remain dependent on trusted
-writers and protection of workflow/caller files. If an alternate workflow satisfies the
-same App-bound check, document that limitation. Do not certify centrally immutable
-workflow identity; evaluate a supported stronger entitlement/control if it is required.
-
-Completion requires A1-A12 evidence or an explicit owner-accepted documented exception
-for each unmet control, zero unmanaged drift in the declared scope, an approved recovery
-path and a successful second reconciliation. Provisioning and enforcement may not be
-waived merely because configuration files or a health check exist.
+Completion remains open until drift repair and the next zero-write apply/readback pass,
+the schedule activation decision is reviewed, and the owner completes the outstanding
+2FA enrollment. Do not represent the unanswered Codespaces session flow as accepted.
+No owner 2FA requirement is enabled before enrollment and recovery readiness.
