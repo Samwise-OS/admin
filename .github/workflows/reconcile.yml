@@ -8,6 +8,8 @@ on:
         required: true
         default: true
         type: boolean
+  schedule:
+    - cron: '17 6 * * *'
 
 permissions:
   contents: read
@@ -20,7 +22,7 @@ jobs:
   reconcile:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment: governance
     steps:
       - name: Checkout trusted admin revision
@@ -29,10 +31,36 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Validate bounded Safe-Settings configuration
-        run: python3 scripts/validate_safe_settings.py
+      - name: Validate manifests, generated scope and Safe-Settings configuration
+        run: |
+          python3 scripts/audit.py validate
+          python3 scripts/generate_repository_settings.py --check
+          python3 scripts/validate_safe_settings.py
+
+      - name: Check scheduled activation flag before credential use
+        id: activation
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          config = json.loads(pathlib.Path('config/organization.json').read_text(encoding='utf-8'))
+          enabled = config['safe_settings']['schedule_enabled'] is True
+          execute = os.environ['EVENT_NAME'] != 'schedule' or enabled
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f"execute={'true' if execute else 'false'}\n")
+          if not execute:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+                  summary.write('Scheduled reconciliation is disabled by the versioned organization manifest. No credentialed steps ran.\n')
+          print(json.dumps({'event': os.environ['EVENT_NAME'], 'scheduled_reconciliation_enabled': enabled,
+                            'credentialed_steps_enabled': execute}, separators=(',', ':')))
+          PY
 
       - name: Confirm Safe-Settings remote config is this trusted main revision
+        if: steps.activation.outputs.execute == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -43,6 +71,7 @@ jobs:
           }
 
       - name: Checkout reviewed Safe-Settings source
+        if: steps.activation.outputs.execute == 'true'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: github-community-projects/safe-settings
@@ -51,17 +80,21 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js 22.23.4
+        if: steps.activation.outputs.execute == 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22.23.4
 
       - name: Verify lockfile and install locked production dependencies
+        if: steps.activation.outputs.execute == 'true'
         working-directory: .safe-settings
         run: |
           echo '8C0EDE66EB57296B64B0A2144C9AF75553A1B271E571DCCA278606DCD6150F7B  package-lock.json' | sha256sum --check --status
           npm ci --omit=dev --ignore-scripts
 
       - name: Recheck remote main immediately before reconciliation
+        id: trusted_main
+        if: steps.activation.outputs.execute == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -73,6 +106,7 @@ jobs:
 
       - name: Reconcile repository settings
         id: full_sync
+        if: steps.activation.outputs.execute == 'true' && steps.trusted_main.outcome == 'success'
         working-directory: .safe-settings
         env:
           APP_ID: ${{ vars.SAFE_SETTINGS_APP_ID }}
@@ -82,18 +116,128 @@ jobs:
           CONFIG_PATH: .github
           SETTINGS_FILE_PATH: settings.yml
           DEPLOYMENT_CONFIG_FILE: ${{ github.workspace }}/.github/deployment-settings.yml
-          FULL_SYNC_NOP: ${{ inputs.full_sync_nop }}
+          FULL_SYNC_NOP: ${{ github.event_name == 'schedule' && 'false' || (inputs.full_sync_nop && 'true' || 'false') }}
           LOG_LEVEL: info
           NODE_OPTIONS: --require=${{ github.workspace }}/scripts/trace_safe_settings.cjs
-        run: node full-sync.js
+        run: |
+          set +e
+          mkdir -p "$GITHUB_WORKSPACE/.local"
+          node full-sync.js > "$GITHUB_WORKSPACE/.local/safe-settings-private.log" 2>&1
+          sync_status=$?
+          set -e
+          python3 - "$sync_status" <<'PY'
+          import datetime
+          import json
+          import os
+          import pathlib
+          import sys
+
+          allowed = {
+              'observed_requests', 'observed_expected_origin_requests',
+              'observed_managed_repository_requests', 'managed_config_mutation_requests',
+              'unclassified_managed_writes', 'trace_errors', 'supported',
+          }
+          source = pathlib.Path(os.environ['GITHUB_WORKSPACE']) / '.local/safe-settings-private.log'
+          trace = None
+          if source.is_file():
+              for line in source.read_text(encoding='utf-8', errors='replace').splitlines():
+                  if line.startswith('SAFE_SETTINGS_HTTP_RECEIPT '):
+                      try:
+                          candidate = json.loads(line.removeprefix('SAFE_SETTINGS_HTTP_RECEIPT '))
+                      except json.JSONDecodeError:
+                          continue
+                      counters = allowed - {'supported'}
+                      if (isinstance(candidate, dict) and set(candidate) == allowed
+                              and type(candidate.get('supported')) is bool
+                              and all(type(candidate.get(key)) is int and candidate[key] >= 0
+                                      for key in counters)):
+                          trace = candidate
+          status = int(sys.argv[1])
+          receipt = {
+              'schema_version': 1,
+              'workflow_sha': os.environ.get('GITHUB_SHA'),
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+              'event': os.environ.get('GITHUB_EVENT_NAME'),
+              'ref': os.environ.get('GITHUB_REF'),
+              'mode': 'apply' if os.environ.get('FULL_SYNC_NOP') == 'false' else 'preview',
+              'safe_settings_exit_code': status,
+              'trace': trace,
+              'outcome': 'pass' if status == 0 and trace and trace['supported']
+                          and trace['observed_expected_origin_requests'] > 0
+                          and trace['observed_managed_repository_requests'] > 0
+                          and trace['unclassified_managed_writes'] == 0
+                          and trace['trace_errors'] == 0 else 'fail',
+              'created_at_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          }
+          destination = pathlib.Path(os.environ['GITHUB_WORKSPACE']) / '.local/reconcile-receipt.json'
+          destination.write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps({'reconcile_receipt': '.local/reconcile-receipt.json',
+                            'outcome': receipt['outcome'], 'trace_supported': bool(trace and trace['supported']),
+                            'managed_config_mutation_requests': trace.get('managed_config_mutation_requests') if trace else None},
+                           separators=(',', ':')))
+          if receipt['outcome'] != 'pass' and status == 0:
+              status = 78
+          raise SystemExit(status)
+          PY
 
       - name: Check trusted main revision after reconciliation
-        if: always()
+        id: trusted_main_after
+        if: always() && steps.activation.outputs.execute == 'true' && steps.full_sync.outcome != 'skipped'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           remote_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
           test "$remote_sha" = "$GITHUB_SHA" || {
-            echo "Remote main changed during reconciliation. Review any writes before retrying." >&2
+            echo "Remote main changed during reconciliation. Review the readback before any retry." >&2
             exit 1
           }
+
+      - name: Independently read back managed repository defaults and rulesets
+        id: readback
+        if: always() && steps.activation.outputs.execute == 'true' && steps.full_sync.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/audit.py audit-managed --output .local/managed-audit-receipt.json
+
+      - name: Summarize sanitized reconciliation evidence
+        if: always() && steps.activation.outputs.execute == 'true'
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          lines = ['## Safe-Settings reconciliation evidence', '']
+          for name in ('reconcile-receipt.json', 'managed-audit-receipt.json'):
+              path = pathlib.Path('.local') / name
+              if not path.is_file():
+                  lines.append(f'- {name}: unavailable')
+                  continue
+              receipt = json.loads(path.read_text(encoding='utf-8'))
+              lines.append(f"- {name}: {receipt.get('outcome', receipt.get('comparison_state', 'unknown'))}")
+              for repository in receipt.get('repositories', []):
+                  details = ', '.join(repository.get('difference_paths', []))
+                  suffix = f" ({details})" if details else ''
+                  lines.append(f"  - {repository.get('name', 'unknown')} / {repository.get('control', 'control')}: {repository.get('state', 'unknown')}{suffix}")
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write('\n'.join(lines) + '\n')
+          PY
+
+      - name: Upload sanitized reconciliation receipt
+        if: always() && steps.full_sync.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: reconciliation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local/reconcile-receipt.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload sanitized managed readback receipt
+        if: always() && steps.readback.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: managed-readback-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .local/managed-audit-receipt.json
+          if-no-files-found: error
+          retention-days: 14

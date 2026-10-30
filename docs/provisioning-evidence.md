@@ -58,3 +58,26 @@ The current acceptance PR #1 is open at head
 [40618226036](https://github.com/Samwise-OS/baseline-canary/actions/runs/40618226036)
 failed on the deliberately malformed PR fixture. No canary content was changed while
 that acceptance PR was pending.
+
+## PR-based content reconciliation
+
+The local `scripts/provision.py` implementation now proposes shared-file changes on a
+deterministic `codex/provision-<hash>` branch and opens a normal pull request against
+`main`. The branch identity includes the observed base commit and desired content hash.
+An identical current `main` produces no writes; a rerun against the same base reuses a
+matching open pull request. A changed base yields a different branch identity, and an
+existing branch with an unexpected parent or any full-tree difference from the base
+plus desired files is refused without force-pushing. This detects extra paths, symlinks,
+gitlinks, and changes to unrelated file content or mode.
+Results report `content_state` and, while review is pending, a `content_pull_request`
+object with URL, state, number, head SHA, and exact base SHA. A pending proposal is not
+reported as converged.
+
+These are implementation and local-fixture test claims only; this evidence file does
+not record an authenticated execution of the new PR path. Newly created repositories
+must be added to `config/repositories.json` with their observed repository ID before
+the next adoption run. Repositories that need Safe-Settings reconciliation must also
+be added to the installed GitHub App's selected repositories and to its reviewed
+program allowlist; adding a manifest entry alone does not expand that authorization
+boundary. Obtain owner approval for installation changes and verify the actual
+installation selection through GitHub before claiming coverage.

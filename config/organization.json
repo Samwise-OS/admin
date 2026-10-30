@@ -3,6 +3,7 @@
   "organization": "Samwise-OS",
   "organization_id": 349008063,
   "admin_repository": "admin",
+  "admin_repository_id": 1436238530,
   "state": "policy-applied-2fa-enrollment-gate",
   "organization_settings": {
     "default_repository_permission": "none",
@@ -32,12 +33,7 @@
       "slug": "maintainers",
       "privacy": "closed",
       "maintainers": ["Samwise-x"],
-      "repository_grants": {
-        "admin": "maintain",
-        ".github": "maintain",
-        "repository-template": "maintain",
-        "baseline-canary": "maintain"
-      }
+      "repository_permission": "maintain"
     }
   ],
   "provisioning": {
@@ -52,7 +48,7 @@
   "safe_settings": {
     "repository": "github-community-projects/safe-settings",
     "candidate_commit": "e19444e0d69de050ba55d0262b71fcd8a98edfef",
-    "source_review_complete": false,
+    "source_review_complete": true,
     "installed": true,
     "authenticated": true,
     "app_id": 5504298,
@@ -65,7 +61,8 @@
       "contents": "read",
       "metadata": "read"
     },
-    "last_nop_run": 40619654778,
+    "last_nop_run": 41008940440,
+    "last_apply_run": 41009078745,
     "schedule_enabled": false
   },
   "owner_decisions_pending": [

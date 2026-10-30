@@ -21,8 +21,45 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, observed 2026-10-27
         with:
           persist-credentials: false
-      - name: Validate configuration and audit behavior
+      - name: Run required secretless validations
+        id: doctor
+        env:
+          SAMWISE_GITHUB_SHA: ${{ github.sha }}
+          SAMWISE_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          SAMWISE_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          SAMWISE_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+        run: python3 scripts/doctor.py --output .local/validation-receipt.json
+      - name: Summarize validation receipt
+        if: always()
         run: |
-          python3 scripts/audit.py validate
-          python3 scripts/validate_safe_settings.py
-          python3 -m unittest discover -s tests -v
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          receipt_path = pathlib.Path('.local/validation-receipt.json')
+          if receipt_path.is_file():
+              receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
+              lines = [f"## Governance validation: {receipt.get('outcome', 'unknown')}",
+                       '', f"Head: `{receipt.get('head_sha') or 'unknown'}`", '']
+              lines.extend(f"- {item.get('name', 'unnamed')}: {item.get('status', 'unknown')}"
+                           + (f" ({item['reason']})" if item.get('reason') else '')
+                           for item in receipt.get('checks', []))
+              if not receipt.get('checks'):
+                  lines.append('- Required checks missing; see uploaded diagnostics.')
+          else:
+              lines = ['## Governance validation: unknown', '',
+                       'Receipt missing; validation did not produce evidence.']
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              summary.write('\n'.join(lines) + '\n')
+          PY
+      - name: Upload validation receipt and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4, verified official actions/upload-artifact v4 ref
+        with:
+          name: governance-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .local/validation-receipt.json
+            .local/validation-logs/*.txt
+          if-no-files-found: error
+          retention-days: 14

@@ -36,6 +36,14 @@ are delegated to Codex within the stated organizational authority.
 18. As owner, I want lifecycle and recovery behavior proven without deleting real history.
 19. As future project owner, I want application/language choices kept outside this bootstrap.
 20. As auditor, I want evidence tied to actual actors, commits, requests and runs.
+21. As future repository owner, I want the same manifest-derived baseline and pinned
+    workspace declaration, so a repository starts with consistent GitHub conventions.
+22. As maintainer, I want provisioning updates proposed through idempotent pull
+    requests, so reconciliation works under the protections it establishes.
+23. As maintainer, I want complete failure receipts retained by required CI, so a
+    bounded repair starts with the exact failures and revision rather than repeating discovery.
+24. As owner, I want scheduled credentialed reconciliation separated from secretless
+    pull-request validation, so contributor-controlled jobs cannot access organization credentials.
 
 ## Implementation Decisions
 
@@ -46,6 +54,17 @@ documenting the workflow-substitution boundary. Preserve repository settings aut
 inspect the executor before installing its App. Use GitHub Issues with canonical triage
 roles and native dependencies. Glossary and concise ADRs record terminology/tradeoffs.
 No bulk deletion, visibility conversion or relicensing is required.
+
+The repository manifests define the managed set; generated Safe-Settings files are
+verified outputs rather than independently maintained policy. Repository workspace
+declarations are versioned and image-digest pinned. Git worktrees follow documented
+client conventions; remote GitHub controls apply to the resulting branches and PRs.
+The existing Free plan remains the selected organizational plan. Actual Codespaces
+verification uses explicitly authorized user authentication and records the exercised path.
+
+Required validation emits revision-bound, versioned receipts and retained diagnostics.
+Missing, empty or skipped required execution is non-passing. Receipt data is evidence,
+never executable repair instructions or authority to change acceptance criteria.
 
 ## Testing Decisions
 
