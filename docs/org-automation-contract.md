@@ -1,7 +1,8 @@
 # Samwise-OS organization automation contract
 
-**Contract version:** 1  
-**Recorded:** 2026-10-30  
+**Contract version:** 1
+
+**Recorded:** 2026-10-30
 **Scope:** GitHub organization infrastructure on GitHub Free
 
 This contract defines how the Samwise-OS organization baseline is declared, proposed,
