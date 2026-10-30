@@ -5,8 +5,9 @@ Before further mutation, recheck remote main, PR heads, configuration and audit 
 
 ## Deployed and verified
 
-- PRs [#7](https://github.com/Samwise-OS/admin/pull/7), [#8](https://github.com/Samwise-OS/admin/pull/8) and [#9](https://github.com/Samwise-OS/admin/pull/9) are merged. The tested executor/readback code is on main at `c5f14882817a06f1982b4fcd34d429477b3061a8`.
-- The original four-repository apply and readback matched. Fresh repository `bootstrap-acceptance-20261030` (ID `1439988641`) is adopted into the manifest; its generated configuration and standard-content proposals are pending ordinary PR rollout and live reconciliation.
+- PRs [#7](https://github.com/Samwise-OS/admin/pull/7), [#8](https://github.com/Samwise-OS/admin/pull/8), [#9](https://github.com/Samwise-OS/admin/pull/9) and [#10](https://github.com/Samwise-OS/admin/pull/10) are merged. PR #10 merged as `86e63dd9fc141942bb3cf397187bedb0e4508f1e`; the App apply/readback workflow and reusable repository workflow are present on `main`.
+- Fresh repository `bootstrap-acceptance-20261030` (ID `1439988641`) is adopted. Its generated declarations and standard-content PR merged normally as `0091af6196de8640a43268353be3f9b5932738d1`.
+- The four full-manifest content PRs merged after green exact-head checks: `.github` #2 (`edcb588`), `repository-template` #2 (`d35c2c4`), `baseline-canary` #8 (`095cf0b`) and `bootstrap-acceptance-20261030` #1 (`0091af6`).
 - Standards updates merged through green, exact-head ordinary PRs in `.github` (#1), `repository-template` (#1), and `baseline-canary` (#5). The next provisioning plan had no content, metadata, label or vulnerability-reporting changes. Source workflow revision: `9811e2dba4ecb5e4cb6564b385a7f6b4e46d6e2b`.
 - Organization policy and exact team-grant reconciliation repeated without writes. All seven canonical labels and private vulnerability reporting have reproducible provisioning paths.
 - The latest source suite passed **79 tests**, zero skips. Required CI retains versioned receipts, complete diagnostics and fallback evidence for early failure. Standards and Spec reviews were performed separately; no hard blockers remained.
@@ -16,19 +17,24 @@ Before further mutation, recheck remote main, PR heads, configuration and audit 
 
 ## Activation and remaining owner actions
 
-This revision declares daily native reconciliation at **06:17 UTC**, with no LLM calls.
-Scheduled run `41060159080` occurred before the activation change reached `main`; the
-gate skipped all credentialed work. A post-activation scheduled run must complete
-reconciliation and independent readback before relying on the schedule.
+The versioned main revision declares the daily **06:17 UTC** native reconciliation and
+a temporary five-minute acceptance cadence, with no LLM calls. Scheduled run
+`41060159080` occurred before activation and skipped credentialed work. Post-activation
+manual full apply [41093839764](https://github.com/Samwise-OS/admin/actions/runs/41093839764)
+completed on `main`; its receipt recorded two managed mutation requests and its
+independent App audit matched identity, shared settings and named ruleset for all five
+declared repositories. The temporary scheduled-drift acceptance is still in progress;
+no post-activation timer run is claimed until its native event completes reconciliation
+and readback.
 
 1. The owner account has 2FA enabled; the member 2FA-disabled filter is empty and there are no outside collaborators. The organization requirement is enabled and owner-authenticated API readback matches the declaration.
-2. A Codespace was created, but remote shell provisioning failed because the sshd Feature did not resolve. PR10 pins the Feature digest; this fix is not live until merged into `repository-template` `main`. No successful runtime acceptance is claimed. See [Codespaces evidence](codespaces-acceptance-evidence.md).
-3. The Safe-Settings installation selects **All repositories** (installation `176024067`). The manifest and generated program allowlist now declare five repositories; new-repository reconciliation and zero-change convergence remain pending.
+2. The Codespaces runtime acceptance now passes after the pinned sshd Feature reached template `main` (`d35c2c4`). Remote execution, required files, stop/start recovery and cleanup were verified; evidence records the CLI polling warning and the absence of Python without overstating either. See [Codespaces evidence](codespaces-acceptance-evidence.md).
+3. The Safe-Settings installation selects **All repositories** (installation `176024067`). The manifest declares five managed repositories; all-five App reconciliation and independent readback passed in run `41093839764`. A final scheduled drift repair/zero-write cycle is still pending.
 
 Actor permission boundaries and rendered issue-form behavior have been exercised for
 the tested actor/repository; the specific scope and limits are recorded in
-[acceptance](acceptance.md). Scheduled-event acceptance and Codespaces runtime remain
-open.
+[acceptance](acceptance.md). Scheduled-event acceptance remains open until a genuine
+post-activation timer event completes.
 
 ## Resume from committed tools
 
