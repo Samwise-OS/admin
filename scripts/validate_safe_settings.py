@@ -7,17 +7,59 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 EXPECTED_REPOSITORIES = {"admin", "baseline-canary"}
 EXPECTED_RULESET = "samwise-default-branch"
+EXPECTED_CHECK_CONTEXT = "baseline / standards"
+EXPECTED_CHECK_APP_ID = 15368
+ALLOWED_REPO_CONFIGS = {"baseline-canary.yml"}
 
 
-def read_json_yaml(path):
-    """Read the JSON-syntax YAML subset used here, without executable YAML tags."""
+def read_json_yaml(path, root):
+    """Read the JSON-syntax YAML subset and reject links or escapes."""
+    root = root.resolve(strict=True)
+    if path.is_symlink():
+        raise ValueError(f"{path}: symlinked configuration is forbidden")
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"{path}: expected JSON-syntax YAML: {error}") from error
+        resolved = path.resolve(strict=True)
+        resolved.relative_to(root)
+        value = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise ValueError(f"{path}: expected in-root JSON-syntax YAML: {error}") from error
     if not isinstance(value, dict):
         raise ValueError(f"{path}: top-level value must be an object")
     return value
+
+
+def expected_ruleset():
+    return {
+        "name": EXPECTED_RULESET,
+        "target": "branch",
+        "enforcement": "active",
+        "bypass_actors": [],
+        "conditions": {"ref_name": {
+            "include": ["~DEFAULT_BRANCH"],
+            "exclude": [],
+        }},
+        "rules": [
+            {"type": "deletion"},
+            {"type": "non_fast_forward"},
+            {"type": "required_linear_history"},
+            {"type": "pull_request", "parameters": {
+                "required_approving_review_count": 0,
+                "dismiss_stale_reviews_on_push": True,
+                "require_code_owner_review": False,
+                "require_last_push_approval": False,
+                "required_review_thread_resolution": True,
+                "allowed_merge_methods": ["squash"],
+            }},
+            {"type": "required_status_checks", "parameters": {
+                "strict_required_status_checks_policy": True,
+                "do_not_enforce_on_create": False,
+                "required_status_checks": [{
+                    "context": EXPECTED_CHECK_CONTEXT,
+                    "integration_id": EXPECTED_CHECK_APP_ID,
+                }],
+            }},
+        ],
+    }
 
 
 def validate_settings(settings):
@@ -46,43 +88,38 @@ def validate_deployment(config):
         raise ValueError("deployment allowlist must be exactly admin and baseline-canary")
 
 
-def validate_ruleset(path, config):
-    allowed_top = {"rulesets"}
-    if path.parent.name == "suborgs":
-        allowed_top |= {"suborgrepos", "ruleset_scope"}
-        if config.get("ruleset_scope") != "repo":
-            raise ValueError(f"{path}: suborg rules must explicitly use repository scope")
-        if config.get("suborgrepos") != ["baseline-canary"]:
-            raise ValueError(f"{path}: suborg must target only baseline-canary")
-    if set(config) != allowed_top:
-        raise ValueError(f"{path}: unsupported or executable configuration keys")
-    rulesets = config.get("rulesets")
-    if not isinstance(rulesets, list):
-        raise ValueError(f"{path}: rulesets must be a list")
-    for ruleset in rulesets:
-        if not isinstance(ruleset, dict) or ruleset.get("name") != EXPECTED_RULESET:
-            raise ValueError(f"{path}: unexpected ruleset entry")
-        if ruleset.get("enforcement") != "disabled":
-            raise ValueError(f"{path}: ruleset remains disabled until live acceptance")
-        if ruleset.get("bypass_actors") != []:
-            raise ValueError(f"{path}: bypass actors are not approved")
-        if ruleset.get("target") != "branch" or set(ruleset) - {
-            "name", "target", "enforcement", "bypass_actors", "conditions", "rules"
-        }:
-            raise ValueError(f"{path}: unsupported ruleset shape")
+def scan_config_directory(directory, allowed_files):
+    """Reject alternate extensions, nested paths, aliases, and symlink entries."""
+    if directory.is_symlink():
+        raise ValueError(f"{directory}: symlinked configuration directory is forbidden")
+    if not directory.exists():
+        return
+    if not directory.is_dir():
+        raise ValueError(f"{directory}: expected a configuration directory")
+    for entry in directory.iterdir():
+        if entry.is_symlink():
+            raise ValueError(f"{entry}: symlinked configuration is forbidden")
+        if not entry.is_file() or entry.name not in allowed_files:
+            raise ValueError(f"{entry}: configuration path is outside the approved set")
 
 
 def validate(root=ROOT):
-    settings = read_json_yaml(root / ".github/settings.yml")
-    validate_settings(settings)
-    validate_deployment(read_json_yaml(root / ".github/deployment-settings.yml"))
-    for directory in (root / ".github/repos", root / ".github/suborgs"):
-        if not directory.exists():
-            continue
-        for path in sorted(directory.glob("*.yml")):
-            if path.stem not in EXPECTED_REPOSITORIES and path.parent.name == "repos":
-                raise ValueError(f"{path}: repository override is outside the approved scope")
-            validate_ruleset(path, read_json_yaml(path))
+    root = root.resolve(strict=True)
+    github = root / ".github"
+    if github.is_symlink() or not github.is_dir():
+        raise ValueError(".github must be a real directory inside the checkout")
+    validate_settings(read_json_yaml(github / "settings.yml", root))
+    validate_deployment(read_json_yaml(github / "deployment-settings.yml", root))
+
+    repos = github / "repos"
+    scan_config_directory(repos, ALLOWED_REPO_CONFIGS)
+    scan_config_directory(github / "suborgs", set())
+    repo_config = repos / "baseline-canary.yml"
+    config = read_json_yaml(repo_config, root)
+    if set(config) != {"rulesets"}:
+        raise ValueError("baseline-canary.yml may contain only the repo-scoped rulesets key")
+    if config["rulesets"] != [expected_ruleset()]:
+        raise ValueError("baseline-canary ruleset differs from the exact reviewed payload")
 
 
 def main():

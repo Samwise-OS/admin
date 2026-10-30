@@ -3,7 +3,7 @@
   "organization": "Samwise-OS",
   "organization_id": 349008063,
   "admin_repository": "admin",
-  "state": "authorized-policy-reconciliation",
+  "state": "policy-applied-2fa-enrollment-gate",
   "organization_settings": {
     "default_repository_permission": "none",
     "members_can_create_repositories": false,
@@ -53,12 +53,24 @@
     "repository": "github-community-projects/safe-settings",
     "candidate_commit": "e19444e0d69de050ba55d0262b71fcd8a98edfef",
     "source_review_complete": false,
-    "installed": false,
+    "installed": true,
+    "authenticated": true,
+    "app_id": 5504298,
+    "installation_id": 176024067,
+    "repository_selection": "selected",
+    "repositories": ["admin", ".github", "repository-template", "baseline-canary"],
+    "permissions": {
+      "administration": "write",
+      "checks": "write",
+      "contents": "read",
+      "metadata": "read"
+    },
+    "last_nop_run": 40619654778,
     "schedule_enabled": false
   },
   "owner_decisions_pending": [
     "Owner must complete 2FA enrollment before organization-wide 2FA enforcement",
-    "SafeSettings App review, authentication and installation remain separate gated work",
+    "SafeSettings scheduled reconciliation remains disabled pending operational acceptance",
     "Canary enforcement suite and operational acceptance remain incomplete"
   ]
 }

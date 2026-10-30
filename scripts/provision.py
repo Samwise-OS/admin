@@ -81,6 +81,27 @@ def validate_repositories(repositories):
             raise ValueError(f"{name}: a description is required")
         if not isinstance(desired.get("is_template"), bool):
             raise ValueError(f"{name}: is_template must be boolean")
+        repository_id = desired.get("id")
+        if repository_id is not None and (not isinstance(repository_id, int) or isinstance(repository_id, bool) or repository_id <= 0):
+            raise ValueError(f"{name}: id must be a positive repository ID")
+
+
+def validate_existing_identities(repositories, observed):
+    for desired in repositories:
+        name = desired["name"]
+        repository = observed.get(name)
+        if repository is None:
+            continue
+        recorded_id = desired.get("id")
+        actual_id = repository.get("id")
+        if recorded_id is None:
+            raise ValueError(
+                f"{name} already exists with repository ID {actual_id}; record its ID in the manifest before adoption"
+            )
+        if actual_id != recorded_id:
+            raise ValueError(
+                f"{name}: repository identity mismatch (manifest {recorded_id}, observed {actual_id})"
+            )
 
 
 def sync_files(full_name, branch, desired, apply):
@@ -133,6 +154,7 @@ def run(manifest, workflow_sha, apply=False):
     validate_repositories(manifest.get("repositories"))
     inventory = api("GET", "orgs/Samwise-OS/repos?type=all&per_page=100", paginate=True)
     existing = {repo["name"]: repo for repo in inventory}
+    validate_existing_identities(manifest["repositories"], existing)
     results = []
     for desired in manifest["repositories"]:
         name = desired["name"]
@@ -164,6 +186,8 @@ def run(manifest, workflow_sha, apply=False):
         changes = sync_files(full_name, branch, files_for(desired, workflow_sha), apply)
         results.append({"repository": full_name, "id": observed["id"], "create": created,
                         "metadata_changes": change, "content_changes": changes})
+        if created and desired.get("id") is None:
+            results[-1]["adoption_required"] = "record this repository ID in the manifest before the next reconciliation"
     return results
 
 

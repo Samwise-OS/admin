@@ -1,0 +1,71 @@
+# Organization policy evidence
+
+Observed 2026-10-28 at 02:15 UTC through authenticated GitHub REST requests using
+`gh`, as organization owner `Samwise-x` (organization ID `349008063`). The organization
+is on GitHub Free. This document records live settings and operation boundaries; it does
+not certify the end-to-end bootstrap.
+
+## Applied organization settings
+
+`GET /orgs/Samwise-OS` confirmed default repository permission `none`; repository
+creation disabled for ordinary members (`members_can_create_repositories=false`, with
+public/private creation both false); deletion and repository-visibility changes both
+false; organization 2FA requirement false.
+
+The single current organization member is `Samwise-x`. The one live
+`GET /orgs/Samwise-OS/members?filter=2fa_disabled` check returned `Samwise-x`, so not all
+existing members are enrolled. Outside collaborators were empty. Therefore organization
+2FA enforcement remains off. `BVEnterprisess` is still a pending `direct_member`
+invitation and was not accepted, declined, or modified.
+
+Actions settings read back as: enabled for all organization repositories; allowed
+actions policy `selected`; GitHub-owned actions allowed; verified actions disallowed;
+pattern allowlist empty; full-SHA pinning required. Workflow permissions are read-only,
+and workflows cannot approve pull requests. The org-wide rulesets endpoint returns an
+explicit upgrade-to-Team 403 on the Free plan; repository rulesets remain the supported
+path.
+
+The `Maintainers` team (ID `20375471`, slug `maintainers`) has `Samwise-x` as a team
+maintainer. The team has `maintain` grants on `admin` (ID `1436238530`), `.github`
+(ID `1436487227`), `repository-template` (ID `1436487455`) and `baseline-canary` (ID
+`1436487640`).
+
+The `admin/governance` environment (ID `25527561232`) uses a custom deployment branch
+policy with exactly `main`; `protected_branches=false`, `custom_branch_policies=true`,
+and no required reviewer. `can_admins_bypass=true` is returned by GitHub, so this setting
+does not prevent an administrator bypass. A successful governance run (`40617769323` on
+commit `28908af`) is CI evidence only; the functional canary cases remain open.
+
+Safe-Settings App `samwise-os-safe-settings` (App ID `5504298`, installation ID
+`176024067`) is installed with `repository_selection=selected`. Its observed grants are
+Administration write, Checks write, Contents read and Metadata read. The four selected
+repositories are `admin`, `.github`, `repository-template` and `baseline-canary`.
+Authenticated no-op run `40619654778` succeeded. This proves the no-op invocation only;
+scheduled reconciliation remains disabled. The manifest keeps
+`source_review_complete=false` until the source-review record is explicitly updated.
+
+The organization policy reconciler's local sanitized evidence is
+`.local/org-policy-results.json`. It records two consecutive passes with zero policy
+writes and no team or grant writes on the second pass. The second pass read back all
+four team grants as matching. A successful no-op run, readback or repeated no-write pass
+does not establish canary enforcement, failure recovery or full operational acceptance.
+
+## Manual-only policy setters
+
+The public REST `Update an organization` request body documents repository defaults and
+repository-creation controls, but omits `members_can_delete_repositories`,
+`members_can_change_repo_visibility`, and `two_factor_requirement_enabled`. Attempts to
+include deletion/visibility fields in that PATCH returned success without changing the
+settings. The owner applied deletion and visibility through the GitHub member-privileges
+UI; the API readback above confirms both false. Do not retry those fields as REST writes.
+
+For 2FA, keep the organization requirement off until a fresh inventory shows every
+current member, collaborator and other affected repository principal enrolled. The
+current check found `Samwise-x` in the 2FA-disabled member filter. After enrollment,
+recheck once, apply the organization requirement through the supported GitHub settings
+surface, then verify `two_factor_requirement_enabled=true`. Do not apply an exception to
+the pending invitation; reassess it after acceptance and before enforcement.
+
+See GitHub's [REST API endpoints for organizations](https://docs.github.com/en/rest/orgs/orgs?apiVersion=2022-11-28)
+for the update request fields. Overall acceptance remains pending the 2FA gate and the
+canary suite.

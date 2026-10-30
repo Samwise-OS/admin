@@ -10,6 +10,20 @@ SPEC.loader.exec_module(provision)
 
 
 class ProvisionTests(unittest.TestCase):
+    def test_existing_repository_name_with_replacement_id_fails_preflight(self):
+        with self.assertRaisesRegex(ValueError, "repository identity mismatch"):
+            provision.validate_existing_identities(
+                [{"name": "baseline-canary", "id": 1436487640}],
+                {"baseline-canary": {"id": 999999999}},
+            )
+
+    def test_existing_repository_without_manifest_id_requires_explicit_adoption(self):
+        with self.assertRaisesRegex(ValueError, "record its ID.*before adoption"):
+            provision.validate_existing_identities(
+                [{"name": "future-repository"}],
+                {"future-repository": {"id": 12345}},
+            )
+
     def test_workflow_revision_requires_the_expected_reusable_workflow(self):
         with self.assertRaisesRegex(ValueError, "repository-baseline.yml"):
             provision.validate_workflow_source({"name": "admin"})
