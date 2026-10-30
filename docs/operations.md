@@ -67,7 +67,10 @@ and named rulesets are read after the Safe-Settings step even when that step fai
 drift or unknown read fails the job.
 
 The readback uses a short-lived token from the installed Safe-Settings App, limited
-to the manifest-derived repository list and downscoped to Administration read. The
+to the manifest-derived repository list and carrying the same Administration write,
+Checks write, and Contents read permissions as the established Safe-Settings
+integration. GitHub omits administrative fields from lower-privilege responses. The
+auditor issues GET requests only, but the token itself has write capability. The
 workflow pins the official `actions/create-github-app-token` v3.0.0 tag target by
 commit and lets the action revoke the token at job completion. An unselected new
 repository causes token creation or readback to fail; update and verify the App's

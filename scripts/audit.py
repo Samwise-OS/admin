@@ -117,6 +117,20 @@ def compare_projection(actual, expected, path=""):
     return [] if actual == expected else [path or "$" ]
 
 
+def missing_projection_fields(actual, expected, path=""):
+    """Find omitted declared fields, which may reflect an underprivileged API token."""
+    missing = []
+    if not isinstance(expected, dict) or not isinstance(actual, dict):
+        return missing
+    for key, value in expected.items():
+        child = f"{path}.{key}" if path else key
+        if key not in actual:
+            missing.append(child)
+        elif isinstance(value, dict):
+            missing.extend(missing_projection_fields(actual[key], value, child))
+    return missing
+
+
 def managed_ruleset_observation(repository, expected, fetch):
     endpoint = f"repos/Samwise-OS/{repository}/rulesets?per_page=100"
     summaries = fetch(endpoint, paginated=True)
@@ -139,6 +153,10 @@ def managed_ruleset_observation(repository, expected, fetch):
                 "http_status": details.get("http_status")}
     if not isinstance(details.get("value"), dict):
         return {"state": "unknown", "differences": [], "reason": "malformed-details"}
+    missing = missing_projection_fields(details["value"], expected)
+    if missing:
+        return {"state": "unknown", "differences": [],
+                "reason": "required-fields-not-visible", "missing_fields": missing}
     differences = compare_projection(details["value"], expected)
     return {"state": "drift" if differences else "match",
             "differences": differences}
@@ -207,7 +225,14 @@ def audit_managed_repositories(config, defaults, fetch=get, root=ROOT):
             }
             continue
         comparisons[f"repository:{name}:identity"] = {"state": "match", "differences": []}
-        comparisons[f"repository:{name}:settings"] = compare(details, desired_repository)
+        missing_settings = sorted(set(desired_repository) - set(actual))
+        if missing_settings:
+            comparisons[f"repository:{name}:settings"] = {
+                "state": "unknown", "differences": [],
+                "reason": "required-fields-not-visible", "missing_fields": missing_settings
+            }
+        else:
+            comparisons[f"repository:{name}:settings"] = compare(details, desired_repository)
         repo_config_path = root / ".github" / "repos" / f"{name}.yml"
         try:
             repo_config = json.loads(repo_config_path.read_text(encoding="utf-8"))
@@ -219,7 +244,9 @@ def audit_managed_repositories(config, defaults, fetch=get, root=ROOT):
         observation = managed_ruleset_observation(name, expected_rulesets[0], fetch)
         observations[f"repository:{name}:managed_ruleset"] = observation
         comparisons[f"repository:{name}:managed_ruleset"] = {
-            "state": observation["state"], "differences": observation["differences"]
+            "state": observation["state"], "differences": observation["differences"],
+            **{key: observation[key] for key in ("reason", "missing_fields", "http_status")
+               if key in observation},
         }
     incomplete = any(item["state"] == "unknown" for item in comparisons.values())
     drift = any(item["state"] == "drift" for item in comparisons.values())
@@ -249,7 +276,9 @@ def sanitized_managed_comparisons(comparisons):
         rows.append({"name": repository,
                      "control": control if separator else "repository_settings",
                      "state": value["state"],
-                     "difference_paths": paths})
+                     "difference_paths": paths,
+                     **{field: value[field] for field in ("reason", "missing_fields", "http_status")
+                        if field in value}})
     return rows
 
 
