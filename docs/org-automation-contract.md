@@ -92,12 +92,15 @@ After the writer, `scripts/audit.py audit-managed` independently reads the decla
 organization ID, each repository's immutable ID, canonical name and owner ID, shared
 repository defaults, and each managed ruleset's complete details. In Actions it uses
 a short-lived token from the existing App, scoped to the manifest-derived repository
-list and downscoped to Administration read. The official
+list and carrying the same repository Administration write, Checks write, and Contents
+read permissions used by the established Safe-Settings integration. GitHub omits some
+administrative fields from lower-privilege responses; the audit client issues GET
+requests only, but the token itself is not authorization-read-only. The official
 `actions/create-github-app-token` v3.0.0 source is pinned to the commit resolved from
 its official GitHub tag; the action revokes the token after the job. It projects only
 declared fields, requires the exact rule list and parameters, and leaves unrelated
-rulesets alone. A missing or denied read is unknown; missing, extra, inactive,
-misconfigured, or bypassed managed rules are drift. Either state fails the run. This
+rulesets alone. A denied read or omitted required field is unknown; observed missing,
+extra, inactive, misconfigured, or bypassed managed rules are drift. Either state fails the run. This
 mode does not read membership or private inventory and writes only a sanitized receipt
 of comparison states and difference paths. The full owner audit remains local and
 must stay under ignored `.local/`.

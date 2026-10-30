@@ -64,11 +64,14 @@ The independent audit receives a short-lived token from the installed Safe-Setti
 App after reconciliation. The official `actions/create-github-app-token` v3.0.0
 source is pinned to the immutable commit resolved from its official GitHub tag. The
 workflow derives the token's repository scope from the organization and repository
-manifests and downscopes its Administration permission to read. The action revokes
-the token after the job. This does not expand the App's installed repository selection
-or installation permissions. If GitHub denies a required read, the run fails closed
-as unknown. No scheduled reconciliation should be treated as accepted until a live
-run proves these reads and the current manifests' full managed scope.
+manifests. The token carries the same Administration write, Checks write, and Contents
+read permissions as the established Safe-Settings integration because lower-privilege
+responses omit administrative fields. The audit code issues GET requests only, but
+the token itself has write capability. The action revokes the token after the job.
+This does not expand the App's installed repository selection or installation
+permissions. If GitHub denies a required read, the run fails closed as unknown. No
+scheduled reconciliation should be treated as accepted until a live run proves these
+reads and the current manifests' full managed scope.
 
 ## New repository coverage
 

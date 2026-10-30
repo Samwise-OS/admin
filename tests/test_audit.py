@@ -101,6 +101,44 @@ class AuditTests(unittest.TestCase):
         self.assertEqual("unknown", result["comparisons"][
             "repository:admin:managed_ruleset"]["state"])
 
+    def test_managed_audit_treats_hidden_repository_settings_as_unknown(self):
+        config, defaults, fetch = self.managed_fixture()
+
+        def missing_setting(endpoint, **kwargs):
+            result = fetch(endpoint, **kwargs)
+            if endpoint == "repos/Samwise-OS/admin":
+                result["value"].pop("allow_merge_commit")
+            return result
+
+        result = audit.audit_managed_repositories(config, defaults, missing_setting)
+        comparison = result["comparisons"]["repository:admin:settings"]
+        self.assertEqual("unknown", comparison["state"])
+        self.assertEqual(["allow_merge_commit"], comparison["missing_fields"])
+        receipt = audit.sanitized_managed_comparisons(result["comparisons"])
+        row = next(item for item in receipt
+                   if item["name"] == "admin" and item["control"] == "settings")
+        self.assertEqual("required-fields-not-visible", row["reason"])
+        self.assertEqual(["allow_merge_commit"], row["missing_fields"])
+
+    def test_managed_audit_treats_hidden_ruleset_bypass_as_unknown(self):
+        config, defaults, fetch = self.managed_fixture()
+
+        def missing_bypass(endpoint, **kwargs):
+            result = fetch(endpoint, **kwargs)
+            if endpoint.startswith("repos/Samwise-OS/admin/rulesets/"):
+                result["value"].pop("bypass_actors")
+            return result
+
+        result = audit.audit_managed_repositories(config, defaults, missing_bypass)
+        comparison = result["comparisons"]["repository:admin:managed_ruleset"]
+        self.assertEqual("unknown", comparison["state"])
+        self.assertEqual(["bypass_actors"], result["observations"][
+            "repository:admin:managed_ruleset"]["missing_fields"])
+        receipt = audit.sanitized_managed_comparisons(result["comparisons"])
+        row = next(item for item in receipt
+                   if item["name"] == "admin" and item["control"] == "managed_ruleset")
+        self.assertEqual(["bypass_actors"], row["missing_fields"])
+
     def test_managed_audit_treats_malformed_ruleset_details_as_unknown(self):
         config, defaults, fetch = self.managed_fixture()
 

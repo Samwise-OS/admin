@@ -193,7 +193,7 @@ jobs:
             exit 1
           }
 
-      - name: Prepare declared repository scope for read-only audit token
+      - name: Prepare declared repository scope for managed-state audit token
         id: audit_scope
         if: always() && steps.activation.outputs.execute == 'true' && steps.full_sync.outcome != 'skipped'
         run: |
@@ -217,7 +217,7 @@ jobs:
                            separators=(',', ':')))
           PY
 
-      - name: Create short-lived read-only GitHub App token for managed-state audit
+      - name: Create short-lived GitHub App token for managed-state audit
         id: audit_token
         if: always() && steps.activation.outputs.execute == 'true' && steps.audit_scope.outcome == 'success'
         uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0 official tag target; SHA resolved via GitHub API
@@ -226,7 +226,9 @@ jobs:
           private-key: ${{ secrets.SAFE_SETTINGS_PRIVATE_KEY }}
           owner: ${{ steps.audit_scope.outputs.owner }}
           repositories: ${{ steps.audit_scope.outputs.repositories }}
-          permission-administration: read
+          permission-administration: write
+          permission-checks: write
+          permission-contents: read
 
       - name: Independently read back managed repository defaults and rulesets
         id: readback
