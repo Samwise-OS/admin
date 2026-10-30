@@ -20,8 +20,9 @@ and the upstream lockfile SHA-256 is
 installs Node 22.23.4 production dependencies with lifecycle scripts disabled before
 referencing the GitHub App key.
 
-The installed Safe-Settings App selects `admin`, `.github`, `repository-template`,
-and `baseline-canary`. It has Repository Administration write, Contents read, Checks
+The installed Safe-Settings App selects all repositories (installation ID
+`176024067`). The program allowlist still limits reconciliation to `admin`, `.github`,
+`repository-template`, and `baseline-canary`. It has Repository Administration write, Contents read, Checks
 write, and Metadata read. The generated `restrictedRepos.include` allowlist is an
 additional program boundary; the App installation remains the authorization boundary.
 The App does not own organization settings, Actions policy, teams, or repository
@@ -30,13 +31,15 @@ creation.
 ## Reconciliation operation
 
 Manual dispatch on `main` defaults to a full-sync preview (`full_sync_nop: true`). An
-owner reviews that plan before selecting apply (`false`). A daily 06:17 UTC
-schedule is declared but remains disabled by its gate while
-`config/organization.json:safe_settings.schedule_enabled` is `false`. The scheduled
-activation check runs after manifest and generated-file validation and before any
-step references the App ID or private key. Enabling it requires a reviewed manifest
-change after canary acceptance; the schedule applies only the declared Safe-Settings
-repository baseline.
+owner reviews that plan before selecting apply (`false`). A daily 06:17 UTC schedule
+is declared enabled in the activation change, alongside a temporary five-minute
+acceptance cadence. Remove the temporary cadence through a normal reviewed change
+after one successful post-activation schedule run. Scheduled event `41060159080` ran while
+`main` still declared the flag false; its gate correctly skipped every credentialed
+step, so it is not acceptance evidence for active scheduled reconciliation. After
+the activation change reaches `main`, wait for a new scheduled event and verify
+successful reconciliation and readback. The schedule applies only the declared
+Safe-Settings repository baseline.
 
 Credentialed runs check that remote `main` equals the checked-out `GITHUB_SHA` before
 and immediately before Safe-Settings starts, then check again after it exits. A
@@ -68,10 +71,10 @@ manifests. The token carries the same Administration write, Checks write, and Co
 read permissions as the established Safe-Settings integration because lower-privilege
 responses omit administrative fields. The audit code issues GET requests only, but
 the token itself has write capability. The action revokes the token after the job.
-This does not expand the App's installed repository selection or installation
-permissions. If GitHub denies a required read, the run fails closed as unknown. No
-scheduled reconciliation should be treated as accepted until a live run proves these
-reads and the current manifests' full managed scope.
+This does not expand the App's installation permissions. If GitHub denies a required
+read, the run fails closed as unknown. No scheduled reconciliation should be treated
+as accepted until a post-activation scheduled run proves these reads and the current
+manifests' full managed scope.
 
 ## New repository coverage
 
@@ -111,9 +114,12 @@ shows a successful preview (`41008940440`), first apply (`41008996205`), and
 zero-write second apply (`41009078745`) for `admin` and `baseline-canary`. It also
 records independent readback of their repository defaults, canary ruleset `26186884`,
 and Safe-Settings check publication. That is evidence for those two repositories and
-that revision. It does not prove all four currently generated repos have converged,
-that scheduled reconciliation has run, or that the complete canary acceptance suite
-has passed. Keep `schedule_enabled` false until those gates are complete.
-
-The owner has not completed the required 2FA enrollment. Do not turn on organization
-2FA enforcement until that human authentication step is complete and verified.
+that revision. Later authenticated runs applied all four repositories and proved
+zero-write idempotence; see the linked rollout evidence. Scheduled event `41060159080`
+occurred while the `main` manifest still had the activation flag false, so its gate
+skipped credentialed work. The first post-activation scheduled run remains unobserved.
+The current organization 2FA-disabled member filter is empty, the outside-collaborator
+inventory is empty, and the owner account has 2FA enabled. The organization-level
+requirement is now enabled; owner-authenticated readback matches the declared value.
+Future drift must be corrected through GitHub security settings because the documented
+organization REST update request does not accept this field.

@@ -4,9 +4,10 @@
   "organization_id": 349008063,
   "admin_repository": "admin",
   "admin_repository_id": 1436238530,
-  "state": "policy-applied-2fa-enrollment-gate",
+  "state": "policy-applied-2fa-enforced-schedule-acceptance-pending",
   "organization_settings": {
     "default_repository_permission": "none",
+    "two_factor_requirement_enabled": true,
     "members_can_create_repositories": false,
     "members_can_create_public_repositories": false,
     "members_can_create_private_repositories": false,
@@ -53,8 +54,8 @@
     "authenticated": true,
     "app_id": 5504298,
     "installation_id": 176024067,
-    "repository_selection": "selected",
-    "repositories": ["admin", ".github", "repository-template", "baseline-canary"],
+    "repository_selection": "all",
+    "repositories": ["admin", ".github", "repository-template", "baseline-canary", "bootstrap-acceptance-20261030"],
     "permissions": {
       "administration": "write",
       "checks": "write",
@@ -62,12 +63,10 @@
       "metadata": "read"
     },
     "last_nop_run": 41008940440,
-    "last_apply_run": 41009078745,
-    "schedule_enabled": false
+    "last_apply_run": 41011894264,
+    "schedule_enabled": true
   },
   "owner_decisions_pending": [
-    "Owner must complete 2FA enrollment before organization-wide 2FA enforcement",
-    "SafeSettings scheduled reconciliation remains disabled pending operational acceptance",
-    "Canary enforcement suite and operational acceptance remain incomplete"
+    "Wait for a scheduled event after the activation change reaches main and verify credentialed reconciliation plus independent readback; then remove the temporary five-minute acceptance cadence"
   ]
 }

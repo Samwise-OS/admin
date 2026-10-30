@@ -10,6 +10,7 @@ on:
         type: boolean
   schedule:
     - cron: '17 6 * * *'
+    - cron: '*/5 * * * *' # Temporary acceptance cadence; remove after one successful post-activation schedule run.
 
 permissions:
   contents: read

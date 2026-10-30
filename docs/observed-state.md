@@ -44,14 +44,15 @@ The complete local response inventory is intentionally not committed to the publ
 No live organization setting, access grant, app, rule, credential scope or schedule was
 changed during this initial inspection.
 
-## Current policy readback
+## Policy readback as of 2026-10-28
 
 On 2026-10-28, authenticated `gh api` calls as owner `Samwise-x` reconciled the
 organization baseline. Default repository permission is `none`; member repository
 creation is disabled for public and private repositories. Organization Actions now
 allow GitHub-owned actions only, require full-length SHA pins, and disallow verified
 marketplace actions and extra patterns. Workflow tokens remain read-only and cannot
-approve pull requests. Organization 2FA remains disabled.
+approve pull requests. At that observation, organization 2FA was disabled; the later
+state is recorded below.
 
 `members_can_change_repo_visibility` and `members_can_delete_repositories` both read
 `false` after the owner changed them through the settings UI. These fields are returned
@@ -60,8 +61,8 @@ REST PATCH did not change them. The controller treats any future drift as manual
 
 The `Maintainers` team (ID `20375471`, slug `maintainers`) has `Samwise-x` with the
 maintainer role and a `maintain` grant on `admin`, `.github`, `repository-template`
-and `baseline-canary`. The pending `BVEnterprisess` invitation remains a direct-member
-invitation.
+and `baseline-canary`. At this historical observation, the `BVEnterprisess` invitation
+remained pending; it was later accepted, as recorded in actor evidence.
 
 The `admin/governance` environment (ID `25527561232`) has custom deployment branches
 enabled, protected-branch matching disabled and exactly the `main` branch policy. It
@@ -71,5 +72,51 @@ The organization rulesets endpoint returned HTTP 403 with an explicit GitHub Tea
 upgrade requirement. The auditor classifies this as `unsupported_plan`, not as absent
 configuration or an unexplained read failure. The ignored `.local/org-policy-results.json`
 contains sanitized live readback and two consecutive zero-write policy and team passes.
-Overall acceptance remains false because owner 2FA is open, Safe-Settings authentication
-is pending, and the canary suite has not run.
+That historical statement predates Safe-Settings activation and the canary functional
+suite. Current evidence follows; consult `docs/acceptance.md` for remaining gates.
+
+## Current managed-repository verification
+
+On 2026-10-30, `Samwise-OS/admin` configuration commit `c5f1488` ran the four-repository
+Safe-Settings apply in [run 41011641487](https://github.com/Samwise-OS/admin/actions/runs/41011641487).
+The run succeeded with five managed configuration mutations. Its sanitized independent
+audit matched repository identity, settings and the named ruleset for `admin`, `.github`,
+`repository-template` and `baseline-canary`. A separate authenticated owner-CLI
+readback also matched all four; the sanitized local result is retained at
+`.local/all-four-owner-readback.json` and is not published because the full owner audit
+contains private inventory.
+
+The authenticated Safe-Settings App is active; its installation selects all
+repositories. The program allowlist now declares five repositories after adoption of
+`bootstrap-acceptance-20261030` (ID `1439988641`); this new repository has not yet been
+reconciled. A subsequent deliberate change of
+`baseline-canary.has_wiki` was detected by targeted audit as the sole drift, recorded in
+`.local/drift-injection-2026-10-30.json`. Repair run `41011804776` succeeded with one
+managed mutation and match; real repeat `41011894264` succeeded with zero managed
+mutations and match. Scheduled run `41060159080` occurred before activation reached
+`main`; it passed the gate but skipped all credentialed steps. A successful
+post-activation scheduled invocation remains unobserved. The live canary
+functional outcomes are recorded in `docs/canary-acceptance-evidence.md`.
+
+## Latest owner-authenticated policy observation — 2026-10-30
+
+The owner account reports personal 2FA enabled. The full organization member roster
+contains two accounts; the owner-only `filter=2fa_disabled` query returns zero, and the
+outside-collaborator inventory is empty. The organization requirement is enabled and
+`GET /orgs/Samwise-OS` reads back `two_factor_requirement_enabled=true`. Both existing
+members remained after enforcement. Detailed evidence is in
+[`2fa-enforcement-evidence.md`](2fa-enforcement-evidence.md).
+
+The policy controller's latest plan returned no writes. Its apply planned zero writes,
+read back all writable organization and Actions fields plus team membership and grants,
+reported no manual-only drift, and returned complete. GitHub's documented organization
+REST update endpoint does not provide a setter for the organization 2FA field, so
+future drift requires the security UI.
+
+The App installation selects all repositories and the current program allowlist declares
+five, including newly adopted `bootstrap-acceptance-20261030` (ID `1439988641`). Its
+protection and reconciliation remain pending rollout. Codespaces runtime acceptance
+remains open: the prior create succeeded but remote shell failed during sshd Feature
+setup. PR10 pins the official Feature by digest; the live fix still requires rollout to
+the template repository's `main`. No organization-owned Codespaces budget or policy is
+claimed on GitHub Free.
