@@ -5,8 +5,11 @@ The bounded batch runner is `.github/workflows/reconcile.yml`; its only trigger 
 manual dispatch on `main`, and its deployment environment is `governance`. The
 environment must restrict deployment branches to `main` and contain
 `SAFE_SETTINGS_APP_ID` as a variable and `SAFE_SETTINGS_PRIVATE_KEY` as a secret.
-The App installation is limited to `admin` and `baseline-canary` and grants only
-repository Administration write, Contents read, Checks write, and Metadata read.
+The App installation selects four repositories: `admin`, `.github`,
+`repository-template`, and `baseline-canary`. It grants only repository
+Administration write, Contents read, Checks write, and Metadata read.
+Safe-Settings reconciliation is separately limited to `admin` and
+`baseline-canary` by its configuration allowlist.
 
 The workflow pins Safe-Settings to
 [`e19444e0d69de050ba55d0262b71fcd8a98edfef`](https://github.com/github-community-projects/safe-settings/tree/e19444e0d69de050ba55d0262b71fcd8a98edfef), checks the lockfile SHA-256
@@ -32,9 +35,10 @@ back independently before any retry.
 
 `restrictedRepos.include` currently limits reconciliation to `admin` and
 `baseline-canary`. The App installation is the actual authorization boundary;
-the YAML allowlist and `GH_ORG` are additional program-level limits. Expansion to
-`.github` or `repository-template` requires a deliberate update to the allowlist,
-validator, App installation selection and acceptance evidence.
+the YAML allowlist and `GH_ORG` are additional program-level limits. Expanding
+reconciliation to `.github` or `repository-template` requires a deliberate update
+to the allowlist, validator and acceptance evidence; those repositories are
+already selected in the App installation.
 
 ## Live evidence and acceptance sequence
 
@@ -59,17 +63,16 @@ acceptance evidence.
 
 1. Keep `SAFE_SETTINGS_APP_ID` and `SAFE_SETTINGS_PRIVATE_KEY` scoped to the
    `governance` environment, whose deployment policy allows `main` only.
-2. Review the successful NOP plan, then wait for the owner to authorize the
-   first apply. Independently read back repository settings and the exact
-   ruleset payload after apply; confirm the `Safe-Settings` check publication
-   separately.
+2. Review the successful NOP plan, then apply the reviewed baseline. Independently
+   read back repository settings and the exact ruleset payload after apply; confirm
+   the `Safe-Settings` check publication separately.
 3. Run NOP again. Require no planned settings or ruleset changes and a supported
    mutation receipt with zero managed configuration-write requests. The check
    reporting writes are excluded from that receipt by design.
 4. Confirm the canary active ruleset and attempt to merge PR #1 without owner
    bypass. The failing `baseline / standards` check must block merge. Then restore
    `.editorconfig`, observe a green check, and verify a normal squash PR can merge.
-5. Only after canary recovery and an accepted second pass should the installation
+5. Only after canary recovery and an accepted second pass should reconciliation
    expand to `.github` or `repository-template`, or a scheduled trigger be added.
 
 There is intentionally no scheduled trigger yet. Add one only after canary apply,
