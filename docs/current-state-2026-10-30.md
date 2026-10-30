@@ -6,7 +6,7 @@ Before further mutation, recheck remote main, PR heads, configuration and audit 
 ## Deployed and verified
 
 - PRs [#7](https://github.com/Samwise-OS/admin/pull/7), [#8](https://github.com/Samwise-OS/admin/pull/8) and [#9](https://github.com/Samwise-OS/admin/pull/9) are merged. The tested executor/readback code is on main at `c5f14882817a06f1982b4fcd34d429477b3061a8`.
-- All four declared repository identities, merge defaults and active named rulesets matched in retained App-authenticated readback and separate owner-authenticated readback.
+- The original four-repository apply and readback matched. Fresh repository `bootstrap-acceptance-20261030` (ID `1439988641`) is adopted into the manifest; its generated configuration and standard-content proposals are pending ordinary PR rollout and live reconciliation.
 - Standards updates merged through green, exact-head ordinary PRs in `.github` (#1), `repository-template` (#1), and `baseline-canary` (#5). The next provisioning plan had no content, metadata, label or vulnerability-reporting changes. Source workflow revision: `9811e2dba4ecb5e4cb6564b385a7f6b4e46d6e2b`.
 - Organization policy and exact team-grant reconciliation repeated without writes. All seven canonical labels and private vulnerability reporting have reproducible provisioning paths.
 - The latest source suite passed **79 tests**, zero skips. Required CI retains versioned receipts, complete diagnostics and fallback evidence for early failure. Standards and Spec reviews were performed separately; no hard blockers remained.
@@ -22,12 +22,13 @@ gate skipped all credentialed work. A post-activation scheduled run must complet
 reconciliation and independent readback before relying on the schedule.
 
 1. The owner account has 2FA enabled; the member 2FA-disabled filter is empty and there are no outside collaborators. The organization requirement is enabled and owner-authenticated API readback matches the declaration.
-2. The Codespaces scope authorization flow timed out. A fresh official `gh auth refresh -h github.com -s codespace` requires owner interaction before a real environment smoke test can run. A pinned devcontainer declaration is deployed; a live Codespace build is not claimed.
-3. The Safe-Settings installation now selects **All repositories** for installation `176024067`. The manifest and generated program allowlist continue to bound current reconciliation to four declared repositories; no App permission change was made.
+2. A Codespace was created, but remote shell provisioning failed because the sshd Feature did not resolve. PR10 pins the Feature digest; this fix is not live until merged into `repository-template` `main`. No successful runtime acceptance is claimed. See [Codespaces evidence](codespaces-acceptance-evidence.md).
+3. The Safe-Settings installation selects **All repositories** (installation `176024067`). The manifest and generated program allowlist now declare five repositories; new-repository reconciliation and zero-change convergence remain pending.
 
-Non-owner actor permissions and the rendered issue chooser remain explicitly partial
-in [acceptance](acceptance.md). Do not close the parent foundation issue as fully
-accepted while those cases and authentication gates remain unresolved.
+Actor permission boundaries and rendered issue-form behavior have been exercised for
+the tested actor/repository; the specific scope and limits are recorded in
+[acceptance](acceptance.md). Scheduled-event acceptance and Codespaces runtime remain
+open.
 
 ## Resume from committed tools
 

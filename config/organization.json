@@ -55,7 +55,7 @@
     "app_id": 5504298,
     "installation_id": 176024067,
     "repository_selection": "all",
-    "repositories": ["admin", ".github", "repository-template", "baseline-canary"],
+    "repositories": ["admin", ".github", "repository-template", "baseline-canary", "bootstrap-acceptance-20261030"],
     "permissions": {
       "administration": "write",
       "checks": "write",

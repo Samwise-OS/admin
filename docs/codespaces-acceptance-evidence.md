@@ -60,10 +60,13 @@ the Features spec's dependency example also includes a digest reference
 ([spec](https://github.com/devcontainers/spec/blob/main/docs/specs/devcontainer-features.md#referencing-a-feature)).
 Local JSON, image digest, and Feature declaration assertions passed.
 
-This fix is currently local. GitHub's remote `main` still has the pre-fix
-configuration, so this run cannot claim that the fix builds or provides a working
-remote shell. Re-run the live create and remote shell check after the config change
-is integrated to the template's `main`.
+The fix is integrated into PR10 branch revision
+`0d35cb084c96d482a82261ee9c65af33f99828ae`. At the last authenticated check,
+`Samwise-OS/repository-template` `main` was still at
+`c5f14882817a06f1982b4fcd34d429477b3061a`; it does not yet contain the Feature.
+This run therefore cannot claim that the fix builds or provides a working remote
+shell. Re-run the live create and remote shell check only after the authenticated
+contents API for the target template's `main` confirms the pinned Feature reference.
 
 Before considering that rerun, the authenticated personal billing UI was inspected
 read-only. The existing Samwise-x Codespaces budget is `$0.00` and reports `Usage

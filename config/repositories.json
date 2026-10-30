@@ -4,6 +4,7 @@
   "repositories": [
     {"name": ".github", "id": 1436487227, "description": "Samwise-OS public community defaults and engineering guidance", "visibility": "public", "is_template": false, "source": "community"},
     {"name": "repository-template", "id": 1436487455, "description": "Canonical public repository template for Samwise-OS engineering", "visibility": "public", "is_template": true, "source": "template"},
-    {"name": "baseline-canary", "id": 1436487640, "description": "Retained canary repository for Samwise-OS organization controls", "visibility": "public", "is_template": false, "source": "template"}
+    {"name": "baseline-canary", "id": 1436487640, "description": "Retained canary repository for Samwise-OS organization controls", "visibility": "public", "is_template": false, "source": "template"},
+    {"name": "bootstrap-acceptance-20261030", "id": 1439988641, "description": "Retained acceptance repository for fresh Samwise-OS provisioning", "visibility": "public", "is_template": false, "source": "community"}
   ]
 }

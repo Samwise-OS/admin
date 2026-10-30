@@ -67,5 +67,26 @@ surface, then verify `two_factor_requirement_enabled=true`. Do not apply an exce
 the pending invitation; reassess it after acceptance and before enforcement.
 
 See GitHub's [REST API endpoints for organizations](https://docs.github.com/en/rest/orgs/orgs?apiVersion=2022-11-28)
-for the update request fields. Overall acceptance remains pending the 2FA gate and the
-canary suite.
+for the update request fields. The observation above is historical; the latest verified
+state is recorded below.
+
+## Latest authenticated state — 2026-10-30
+
+Owner-authenticated CLI reads confirmed personal 2FA enabled, two organization members,
+zero members returned by `filter=2fa_disabled`, and zero outside collaborators. The
+principal enabled the organization requirement in GitHub security settings. Independent
+`GET /orgs/Samwise-OS` returned `two_factor_requirement_enabled=true`; both existing
+members remained. No personal recovery codes were requested or inspected. See
+[`2fa-enforcement-evidence.md`](2fa-enforcement-evidence.md).
+
+Safe-Settings installation `176024067` now reports `repository_selection=all`. The
+manifest program allowlist now declares five repositories, including newly adopted
+`bootstrap-acceptance-20261030` (ID `1439988641`); its live protection and reconciliation
+remain pending rollout.
+The owner controller plan and apply both reported zero writes; policy readback and team
+grants matched, manual-only drift was empty, and apply returned `complete=true`.
+
+Scheduled run [41060159080](https://github.com/Samwise-OS/admin/actions/runs/41060159080)
+was a genuine timer event, but `main` still had `schedule_enabled=false`. The activation
+gate passed and all credentialed reconciliation and readback steps were skipped. It is
+not schedule acceptance; a post-activation scheduled event must complete both stages.
