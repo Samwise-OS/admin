@@ -89,6 +89,10 @@ Maintainers `maintain` grant for the new repository; its immediate repeat return
 Scheduled run [41060159080](https://github.com/Samwise-OS/admin/actions/runs/41060159080)
 was a genuine timer event, but `main` still had `schedule_enabled=false`. The activation
 gate passed and all credentialed reconciliation and readback steps were skipped. It is
-not schedule acceptance. At the latest check, the post-activation five-minute event was
-still pending; a genuine timer event must complete both stages and repair the isolated
-canary settings drift before the acceptance cadence is removed.
+not schedule acceptance. Subsequent post-activation scheduled run
+[41129273464](https://github.com/Samwise-OS/admin/actions/runs/41129273464) repaired the
+isolated canary settings drift with one managed mutation and independently matched the
+five-repository scope. The following scheduled run
+[41152199154](https://github.com/Samwise-OS/admin/actions/runs/41152199154) made zero
+managed mutations and independently matched the same scope. The temporary acceptance
+cadence was removed in the reviewed closeout change; daily 06:17 UTC remains enabled.
