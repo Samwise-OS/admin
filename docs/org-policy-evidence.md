@@ -59,12 +59,11 @@ include deletion/visibility fields in that PATCH returned success without changi
 settings. The owner applied deletion and visibility through the GitHub member-privileges
 UI; the API readback above confirms both false. Do not retry those fields as REST writes.
 
-For 2FA, keep the organization requirement off until a fresh inventory shows every
-current member, collaborator and other affected repository principal enrolled. The
-current check found `Samwise-x` in the 2FA-disabled member filter. After enrollment,
-recheck once, apply the organization requirement through the supported GitHub settings
-surface, then verify `two_factor_requirement_enabled=true`. Do not apply an exception to
-the pending invitation; reassess it after acceptance and before enforcement.
+At the 2026-10-28 observation, the recommended next step was to keep the organization
+requirement off until the affected principals enrolled, then enable it through GitHub
+security settings. That precondition was later satisfied: the latest authenticated
+inventory returned zero 2FA-disabled members and zero outside collaborators, the
+invitation was accepted, and the owner enabled the requirement. Current readback follows.
 
 See GitHub's [REST API endpoints for organizations](https://docs.github.com/en/rest/orgs/orgs?apiVersion=2022-11-28)
 for the update request fields. The observation above is historical; the latest verified
@@ -80,13 +79,20 @@ members remained. No personal recovery codes were requested or inspected. See
 [`2fa-enforcement-evidence.md`](2fa-enforcement-evidence.md).
 
 Safe-Settings installation `176024067` now reports `repository_selection=all`. The
-manifest program allowlist now declares five repositories, including newly adopted
-`bootstrap-acceptance-20261030` (ID `1439988641`); its live protection and reconciliation
-remain pending rollout.
-The owner controller plan and apply both reported zero writes; policy readback and team
-grants matched, manual-only drift was empty, and apply returned `complete=true`.
+manifest program allowlist declares five repositories, including newly adopted
+`bootstrap-acceptance-20261030` (ID `1439988641`). App apply/readback
+[41093839764](https://github.com/Samwise-OS/admin/actions/runs/41093839764) matched identity, shared
+settings and managed rulesets across all five. The owner controller then wrote the
+Maintainers `maintain` grant for the new repository; its immediate repeat returned
+`complete=true` with all five grants already matching.
 
 Scheduled run [41060159080](https://github.com/Samwise-OS/admin/actions/runs/41060159080)
 was a genuine timer event, but `main` still had `schedule_enabled=false`. The activation
 gate passed and all credentialed reconciliation and readback steps were skipped. It is
-not schedule acceptance; a post-activation scheduled event must complete both stages.
+not schedule acceptance. Subsequent post-activation scheduled run
+[41129273464](https://github.com/Samwise-OS/admin/actions/runs/41129273464) repaired the
+isolated canary settings drift with one managed mutation and independently matched the
+five-repository scope. The following scheduled run
+[41152199154](https://github.com/Samwise-OS/admin/actions/runs/41152199154) made zero
+managed mutations and independently matched the same scope. The temporary acceptance
+cadence was removed in the reviewed closeout change; daily 06:17 UTC remains enabled.

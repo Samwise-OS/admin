@@ -77,15 +77,13 @@ repository causes token creation or readback to fail; update and verify the App'
 selected repositories as a separate owner operation.
 
 The daily 06:17 UTC schedule is protected by the versioned
-`safe_settings.schedule_enabled` flag, now declared `true`. A temporary five-minute
-acceptance cadence is included so one genuine post-activation scheduled run can be
-observed promptly; remove that cadence through a normal reviewed change immediately
-after a successful run. Scheduled run
-`41060159080` on 2026-10-30 exercised the timer event but was gated because the then-
-current `main` manifest still declared `false`; all credentialed steps were skipped.
-Treat it as gate evidence only. After the activation change reaches `main`, a later
-scheduled event must complete reconciliation and independent readback before
-scheduled operation is accepted. The schedule owns only shared repository settings;
+`safe_settings.schedule_enabled` flag, declared `true`. Scheduled run `41060159080` on
+2026-10-30 exercised the timer event but was gated because the then-current `main`
+manifest still declared `false`; all credentialed steps were skipped. Treat it as gate
+evidence only. Post-activation scheduled run `41129273464` repaired one managed drift
+and independently matched all five repositories; scheduled run `41152199154` made zero
+managed mutations and independently matched the same scope. The temporary five-minute
+acceptance cadence has been removed; daily operation remains. The schedule owns only shared repository settings;
 organization defaults, Actions policies, team membership and repository grants stay
 in the separate authenticated owner CLI controller.
 
