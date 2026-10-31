@@ -15,21 +15,28 @@ Before further mutation, recheck remote main, PR heads, configuration and audit 
 - The full owner audit also reported match, no drift resources and no unreadable resources. It deliberately does not certify all functional acceptance cases.
 - Current canary negative/positive proofs and exact actor qualifications are in [canary evidence](canary-acceptance-evidence.md). The wrong-source status was rejected; another Actions workflow can satisfy the same App-bound name. Fresh direct/force updates were denied. Isolated deletion was denied and its fixture cleaned up. A normal corrected PR merged without bypass.
 
-## Activation and remaining owner actions
+## Current authenticated state and remaining closeout
 
-The versioned main revision declares the daily **06:17 UTC** native reconciliation and
-a temporary five-minute acceptance cadence, with no LLM calls. Scheduled run
+The versioned main revision `86e63dd9fc141942bb3cf397187bedb0e4508f1e` declares daily
+06:17 UTC native reconciliation. The temporary five-minute acceptance cadence is
+removed in the closeout branch after successful scheduled acceptance. Scheduled run
 `41060159080` occurred before activation and skipped credentialed work. Post-activation
-manual full apply [41093839764](https://github.com/Samwise-OS/admin/actions/runs/41093839764)
-completed on `main`; its receipt recorded two managed mutation requests and its
-independent App audit matched identity, shared settings and named ruleset for all five
-declared repositories. The temporary scheduled-drift acceptance is still in progress;
-no post-activation timer run is claimed until its native event completes reconciliation
-and readback.
+scheduled run [41129273464](https://github.com/Samwise-OS/admin/actions/runs/41129273464)
+made one managed mutation to repair the injected canary drift; its supported trace had
+zero unclassified writes/errors and its independent audit matched identity, settings
+and named ruleset for all five repositories. The following scheduled run
+[41152199154](https://github.com/Samwise-OS/admin/actions/runs/41152199154) made zero
+managed mutations and independently matched the same five-repository scope. Sanitized
+receipts are retained under ignored `.local/`.
 
-1. The owner account has 2FA enabled; the member 2FA-disabled filter is empty and there are no outside collaborators. The organization requirement is enabled and owner-authenticated API readback matches the declaration.
-2. The Codespaces runtime acceptance now passes after the pinned sshd Feature reached template `main` (`d35c2c4`). Remote execution, required files, stop/start recovery and cleanup were verified; evidence records the CLI polling warning and the absence of Python without overstating either. See [Codespaces evidence](codespaces-acceptance-evidence.md).
-3. The Safe-Settings installation selects **All repositories** (installation `176024067`). The manifest declares five managed repositories; all-five App reconciliation and independent readback passed in run `41093839764`. A final scheduled drift repair/zero-write cycle is still pending.
+The owner account has 2FA enabled; both current members are compliant, the outside-
+collaborator inventory is empty, and the organization requirement is enabled with
+owner-authenticated readback. The Safe-Settings installation selects all repositories
+(ID `176024067`); the program allowlist and latest managed audit cover exactly five
+repositories. The final owner audit and repeated organization/team readback are being
+captured for this closeout. Codespaces runtime evidence is documented separately; see
+[Codespaces evidence](codespaces-acceptance-evidence.md). This checkpoint is historical;
+review `docs/acceptance.md` and current receipts for the acceptance matrix.
 
 Actor permission boundaries and rendered issue-form behavior have been exercised for
 the tested actor/repository; the specific scope and limits are recorded in
@@ -49,8 +56,9 @@ GitHub issues #1/#3/#4/#5. Use `mattpocock-skills:implement`, `:tdd`, and separa
 `:code-review` axes. Route execution through DevOps Automator on GPT-6 Luna with
 bounded context. Do not treat older temporary handoffs as current truth.
 
-## New authenticated observations — 2026-10-30
+## New authenticated observations — 2026-10-30 (historical snapshot)
 
 The latest owner-authenticated check confirms the owner account has 2FA enabled, the two current organization members have no 2FA-disabled accounts, and there are no outside collaborators. The organization requirement is enabled and readback matches the declaration. The controller treats it as manual-only if it drifts because GitHub's documented organization-update REST request does not include this field.
 
-The Safe-Settings installation now selects all repositories (installation `176024067`), while the reviewed manifest allowlist still limits current managed scope to four repositories. Scheduled event `41060159080` ran before activation reached `main`: it passed the activation guard, skipped all credentialed steps, and does not count as active schedule acceptance. A later scheduled event on the activated `main` revision must complete reconciliation and independent readback.
+At this snapshot, later events had not yet occurred. The current five-repository scope
+and post-activation timer results are recorded in the section above.

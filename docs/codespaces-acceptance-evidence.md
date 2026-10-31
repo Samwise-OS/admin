@@ -127,7 +127,8 @@ credentials or raw authentication output are included here.
 
 ## Admin maintenance runtime
 
-**Status:** configuration updated; live rebuild and doctor smoke test pending.
+**Status:** Python and Node.js runtime configuration pinned; live rebuild and doctor
+smoke test pending.
 
 The template runtime acceptance above does not establish that the organization
 admin Codespace can execute its maintenance checks. `docs/validation-receipts.md`
@@ -152,6 +153,19 @@ Primary sources: [official Python Feature metadata](https://github.com/devcontai
 [official Python Feature installer](https://github.com/devcontainers/features/blob/main/src/python/install.sh),
 [Python 3.12.16 release](https://www.python.org/downloads/release/python-31216/), and
 [official Dev Container Features project](https://github.com/devcontainers/features).
-No live admin Codespace build, installed Python version, doctor exit status, or
-receipt-check count is claimed until the pushed config has been rebuilt and the
+
+The doctor also runs Node.js-based repository checks, so the admin-only container
+pins the official `ghcr.io/devcontainers/features/node` Feature to OCI manifest
+digest `sha256:2a19d3b0b3879437637cfd292eb29fee0afcfbe6364e33db9afc4f80c5c1f956`.
+The digest was resolved from the official `2` tag using the GHCR manifest API; the
+Feature metadata identifies it as the official Node.js Feature. Its `version`
+option accepts an explicit Node.js release, and `22.23.4` is the official Node.js
+22 LTS release dated 2026-10-21.
+
+Primary sources: [official Node Feature metadata](https://github.com/devcontainers/features/blob/main/src/node/devcontainer-feature.json),
+[official Node Feature README](https://github.com/devcontainers/features/blob/main/src/node/README.md),
+[official Node Feature installer](https://github.com/devcontainers/features/blob/main/src/node/install.sh),
+and [Node.js 22.23.4 release](https://nodejs.org/en/blog/release/v22.23.4).
+No live admin Codespace build, installed Python/Node versions, doctor exit status,
+or receipt-check count is claimed until the pushed config has been rebuilt and the
 documented command has completed successfully.

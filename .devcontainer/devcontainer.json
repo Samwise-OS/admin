@@ -6,6 +6,9 @@
       "version": "3.12.16",
       "installTools": false,
       "installJupyterlab": false
+    },
+    "ghcr.io/devcontainers/features/node@sha256:2a19d3b0b3879437637cfd292eb29fee0afcfbe6364e33db9afc4f80c5c1f956": {
+      "version": "22.23.4"
     }
   }
 }

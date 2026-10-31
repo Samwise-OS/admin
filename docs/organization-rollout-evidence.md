@@ -41,7 +41,14 @@ contains private inventory.
 A controlled drift injection then changed `baseline-canary.has_wiki` from the declared
 `false` value to `true` on repository ID `1436487640`. The targeted audit exited 2 and
 reported only `baseline-canary.has_wiki` as drift in
-`.local/drift-injection-2026-10-30.json`. This confirms detection of the intended
-field-level drift. Repair, successful readback and the next zero-write apply remain
-pending; the scheduled workflow activation flag stays false until those checks and the
-parent's explicit activation decision are complete.
+`.local/drift-injection-2026-10-30.json`. Scheduled run
+[41129273464](https://github.com/Samwise-OS/admin/actions/runs/41129273464) on trusted
+`main` revision `86e63dd9fc141942bb3cf397187bedb0e4508f1e` completed with one managed
+mutation request, zero unclassified managed writes and zero trace errors. Its
+independent sanitized readback matched identity, settings and the named ruleset for all
+five managed repositories. The following genuine scheduled run
+[41152199154](https://github.com/Samwise-OS/admin/actions/runs/41152199154) on the same
+revision recorded zero managed mutation requests and the same five-repository match.
+Both receipts are retained locally under ignored `.local/`; the public evidence records
+their sanitized counts and comparison results. The temporary five-minute cadence is
+removed; daily 06:17 UTC reconciliation remains enabled.

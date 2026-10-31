@@ -29,8 +29,8 @@ The Safe-Settings App is the repository-settings writer. Its installed selection
 permissions are separate from the versioned manifest and its generated allowlist.
 The App installation selects all repositories, with Repository Administration write,
 Contents read, Checks write, and Metadata read. The manifest and generated allowlist
-still bound current reconciliation to `admin`, `.github`, `repository-template`, and
-`baseline-canary`. It does not own organization policy, team membership, repository
+bound current reconciliation to the five declared repositories: `admin`, `.github`,
+`repository-template`, `baseline-canary`, and `bootstrap-acceptance-20261030`. It does not own organization policy, team membership, repository
 creation, or App installation changes. The authenticated owner CLI controller in
 `scripts/organization.py` remains the writer for the explicitly declared organization
 and team fields; there is no competing organization-policy writer.
@@ -116,13 +116,12 @@ writes, and excludes the expected Safe-Settings check-run publication. Full
 Safe-Settings output is kept only in the ephemeral runner's ignored `.local/` log;
 only the sanitized trace receipt and sanitized post-apply comparison are uploaded.
 
-A daily 06:17 UTC schedule is declared enabled by the activation change. A temporary
-five-minute acceptance cadence is also declared; remove it through a normal reviewed
-change immediately after one successful post-activation schedule run. Scheduled event
-`41060159080` ran while `main` still declared the flag false; the gate skipped
-credentialed work, so the run proves the guard only. A scheduled event after the
-activation change reaches `main` must complete reconciliation and independent
-readback before scheduled operation is accepted. Scheduled execution has authority
+A daily 06:17 UTC schedule is enabled. Scheduled event `41060159080` ran while `main`
+still declared the flag false; the gate skipped credentialed work, so that run proves
+the guard only. Post-activation scheduled run `41129273464` repaired one managed drift
+and independently matched all five repositories; scheduled run `41152199154` made zero
+managed mutations and independently matched the same scope. The temporary five-minute
+acceptance cadence was removed after these events. Scheduled execution has authority
 only over shared repository settings. Organization policies and team state remain on
 the explicit owner CLI path.
 
@@ -146,7 +145,7 @@ declared operating boundaries, not hidden enforcement claims.
 ## Current gates
 
 The authenticated preview, initial apply, and zero-write second apply are recorded in
-`docs/reconciliation-evidence-2026-10-30.md`; later evidence covers all four declared
+`docs/reconciliation-evidence-2026-10-30.md`; later evidence covers all five declared
 repositories and zero-write idempotence. The live canary functional suite is tracked
 separately in `docs/acceptance.md`. The owner account has 2FA enabled, current members
 have no 2FA-disabled accounts, and there are no outside collaborators. The desired

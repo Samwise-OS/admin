@@ -9,8 +9,8 @@ into `.github/deployment-settings.yml` and one `.github/repos/<name>.yml` file f
 each managed repository. Run the generator after a manifest change; CI runs its
 `--check` mode and rejects generated drift. `scripts/validate_safe_settings.py`
 checks the resulting Safe-Settings configuration before any reconciliation credential
-is referenced. The supported set currently includes `admin`, `.github`,
-`repository-template`, and `baseline-canary`.
+is referenced. The supported five-repository set is `admin`, `.github`,
+`repository-template`, `baseline-canary`, and `bootstrap-acceptance-20261030`.
 
 Safe-Settings owns the shared repository defaults in `.github/settings.yml`. Its
 workflow is `.github/workflows/reconcile.yml`; the source is pinned to
@@ -21,8 +21,8 @@ installs Node 22.23.4 production dependencies with lifecycle scripts disabled be
 referencing the GitHub App key.
 
 The installed Safe-Settings App selects all repositories (installation ID
-`176024067`). The program allowlist still limits reconciliation to `admin`, `.github`,
-`repository-template`, and `baseline-canary`. It has Repository Administration write, Contents read, Checks
+`176024067`). The program allowlist limits reconciliation to the five declared
+repositories. It has Repository Administration write, Contents read, Checks
 write, and Metadata read. The generated `restrictedRepos.include` allowlist is an
 additional program boundary; the App installation remains the authorization boundary.
 The App does not own organization settings, Actions policy, teams, or repository
@@ -32,13 +32,12 @@ creation.
 
 Manual dispatch on `main` defaults to a full-sync preview (`full_sync_nop: true`). An
 owner reviews that plan before selecting apply (`false`). A daily 06:17 UTC schedule
-is declared enabled in the activation change, alongside a temporary five-minute
-acceptance cadence. Remove the temporary cadence through a normal reviewed change
-after one successful post-activation schedule run. Scheduled event `41060159080` ran while
-`main` still declared the flag false; its gate correctly skipped every credentialed
-step, so it is not acceptance evidence for active scheduled reconciliation. After
-the activation change reaches `main`, wait for a new scheduled event and verify
-successful reconciliation and readback. The schedule applies only the declared
+is enabled; the temporary five-minute acceptance cadence has been removed after
+acceptance. Scheduled event `41060159080` ran while `main` still declared the flag
+false; its gate correctly skipped every credentialed step. Post-activation scheduled
+run `41129273464` repaired the injected canary drift with one managed mutation and
+independently matched all five repositories. Scheduled run `41152199154` made zero
+managed mutations and independently matched the same scope. The schedule applies only the declared
 Safe-Settings repository baseline.
 
 Credentialed runs check that remote `main` equals the checked-out `GITHUB_SHA` before
