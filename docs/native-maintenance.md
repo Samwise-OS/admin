@@ -113,10 +113,11 @@ shows a successful preview (`41008940440`), first apply (`41008996205`), and
 zero-write second apply (`41009078745`) for `admin` and `baseline-canary`. It also
 records independent readback of their repository defaults, canary ruleset `26186884`,
 and Safe-Settings check publication. That is evidence for those two repositories and
-that revision. Later authenticated runs applied all four repositories and proved
-zero-write idempotence; see the linked rollout evidence. Scheduled event `41060159080`
-occurred while the `main` manifest still had the activation flag false, so its gate
-skipped credentialed work. The first post-activation scheduled run remains unobserved.
+that revision. Later authenticated runs covered all five managed repositories and
+proved zero-write idempotence; see the linked rollout and acceptance evidence.
+Scheduled event `41060159080` occurred while the `main` manifest still had the
+activation flag false, so its gate skipped credentialed work. Subsequent scheduled
+repair and zero-write runs completed the timer acceptance.
 The current organization 2FA-disabled member filter is empty, the outside-collaborator
 inventory is empty, and the owner account has 2FA enabled. The organization-level
 requirement is now enabled; owner-authenticated readback matches the declared value.

@@ -127,8 +127,7 @@ credentials or raw authentication output are included here.
 
 ## Admin maintenance runtime
 
-**Status:** Python and Node.js runtime configuration pinned; live rebuild and doctor
-smoke test pending.
+**Status:** **PASS** for live runtime, doctor, stop/start, and test-instance cleanup.
 
 The template runtime acceptance above does not establish that the organization
 admin Codespace can execute its maintenance checks. `docs/validation-receipts.md`
@@ -166,6 +165,32 @@ Primary sources: [official Node Feature metadata](https://github.com/devcontaine
 [official Node Feature README](https://github.com/devcontainers/features/blob/main/src/node/README.md),
 [official Node Feature installer](https://github.com/devcontainers/features/blob/main/src/node/install.sh),
 and [Node.js 22.23.4 release](https://nodejs.org/en/blog/release/v22.23.4).
-No live admin Codespace build, installed Python/Node versions, doctor exit status,
-or receipt-check count is claimed until the pushed config has been rebuilt and the
-documented command has completed successfully.
+
+## Successful admin runtime validation
+
+- Created `samwise-admin-doctor-acceptance-7v667gx4gg5wcpjx5` from
+  `Samwise-OS/admin` branch `codex/close-out-organization-baseline` using
+  `.devcontainer/devcontainer.json` and machine `basicLinux32gb`. GitHub reported
+  the Codespace `Available`.
+- The remote checkout was clean at commit
+  `eba5dbdfd52a93a60e0b35517e38f5b720466ea0`, the pushed revision containing the
+  pinned Python and Node Features. The branch advanced by one docs-only commit
+  while the Codespace was building, so this checkout is one commit behind its
+  current branch ref; no code or devcontainer changes were omitted.
+- Remote runtime commands reported `Python 3.12.16` and `v22.23.4`.
+- Ran the documented command exactly:
+  `python3 scripts/doctor.py --output .local/validation-receipt.json`.
+  It exited 0 with aggregate `pass`; configuration, repository settings,
+  Safe-Settings, and unit tests all passed. The unittest log reports 79 tests and
+  `OK` with no skips. The receipt records matching head and checkout SHAs and
+  `worktree_dirty: false`.
+- Sanitized receipt and four validation logs are retained locally under ignored
+  `.local/codespaces-admin-doctor-acceptance-eba5dbd/`; receipt SHA-256 is
+  `B4B30860091390DF9BF3FA6FBD6B29386E710ECBAFBBDBB7AA9CDD7A4BE3B629`.
+- After stopping and restarting the Codespace, GitHub reported it `Available`;
+  SSH again reported the same checkout SHA, clean worktree, Python 3.12.16,
+  Node v22.23.4, and the persisted validation receipt.
+
+The test Codespace was deleted. The authenticated repository-filtered list returned
+`[]`, and direct lookup of the deleted resource returned HTTP 404. No billing or
+plan settings were changed.

@@ -1,6 +1,7 @@
 # Operational acceptance
 
-Status: **Operational acceptance recorded for the declared baseline and tested scope.**
+Status: **PASS for all scoped acceptance criteria, within the tested actor, repository,
+GitHub Free and runtime boundaries below.**
 The five-repository configuration apply and independent readback pass. Fresh repository
 provisioning is created, adopted, protected and independently reconciled across the
 five-repository managed scope. Repository CI acceptance are recorded. Deliberate canary
@@ -14,7 +15,11 @@ drift requires GitHub security settings. Scheduled event `41060159080` ran befor
 activation and correctly skipped all credentialed steps. Post-activation scheduled
 runs `41129273464` and `41152199154` completed on `main` at `86e63dd`; their sanitized
 receipts show one managed mutation on the first run, zero on the next, and independent
-five-repository readbacks matched. Codespaces runtime acceptance is recorded separately.
+five-repository readbacks matched. The admin Codespace validation ran on the pushed
+closeout checkout: Python 3.12.16 and Node 22.23.4 were present, the documented doctor
+command passed all four required checks including 79 tests with zero skips, restart
+preserved the clean checkout and receipt, and the test Codespace was deleted and
+verified absent. See [Codespaces evidence](codespaces-acceptance-evidence.md).
 
 Configuration verification and human/device acceptance are separate. The live
 Codespaces runtime check now passes within the tested template and runtime boundary.
@@ -43,6 +48,8 @@ four-repository match, and injected drift receipt are appended to
 [organization rollout evidence](organization-rollout-evidence.md). Sanitized public
 evidence excludes the complete private inventory and raw API responses.
 
-The scheduled repair and following zero-write run complete the timer acceptance gate.
-Final overall closeout remains dependent on review and merge of this evidence update
-and the separately recorded Codespaces runtime acceptance.
+The scheduled repair and following zero-write run, plus the Codespaces runtime and
+cleanup proof, complete the recorded acceptance gate. Known limits remain explicit:
+fork-based contribution, personal recovery-code inspection, organization-owned
+Codespaces controls, and all possible failure modes were not tested. An alternate
+same-App workflow can emit the required check name; this trust boundary is documented.

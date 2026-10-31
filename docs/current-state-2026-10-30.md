@@ -15,10 +15,10 @@ Before further mutation, recheck remote main, PR heads, configuration and audit 
 - The full owner audit also reported match, no drift resources and no unreadable resources. It deliberately does not certify all functional acceptance cases.
 - Current canary negative/positive proofs and exact actor qualifications are in [canary evidence](canary-acceptance-evidence.md). The wrong-source status was rejected; another Actions workflow can satisfy the same App-bound name. Fresh direct/force updates were denied. Isolated deletion was denied and its fixture cleaned up. A normal corrected PR merged without bypass.
 
-## Current authenticated state and remaining closeout
+## Current authenticated state and closeout evidence
 
 The versioned main revision `86e63dd9fc141942bb3cf397187bedb0e4508f1e` declares daily
-06:17 UTC native reconciliation. The temporary five-minute acceptance cadence is
+06:17 UTC native reconciliation. The temporary five-minute acceptance cadence was
 removed in the closeout branch after successful scheduled acceptance. Scheduled run
 `41060159080` occurred before activation and skipped credentialed work. Post-activation
 scheduled run [41129273464](https://github.com/Samwise-OS/admin/actions/runs/41129273464)
@@ -33,15 +33,18 @@ The owner account has 2FA enabled; both current members are compliant, the outsi
 collaborator inventory is empty, and the organization requirement is enabled with
 owner-authenticated readback. The Safe-Settings installation selects all repositories
 (ID `176024067`); the program allowlist and latest managed audit cover exactly five
-repositories. The final owner audit and repeated organization/team readback are being
-captured for this closeout. Codespaces runtime evidence is documented separately; see
-[Codespaces evidence](codespaces-acceptance-evidence.md). This checkpoint is historical;
-review `docs/acceptance.md` and current receipts for the acceptance matrix.
+repositories. The final owner audit matched with no drift or unknown resources. A
+subsequent organization/team controller pass planned zero writes, confirmed all five
+team grants already matched, and returned complete. The admin Codespace doctor passed
+on the pushed configuration with Python 3.12.16 and Node 22.23.4, 79 tests and zero
+skips; restart and deletion were verified. See
+[Codespaces evidence](codespaces-acceptance-evidence.md). Review `docs/acceptance.md`
+for the acceptance matrix and stated boundaries.
 
 Actor permission boundaries and rendered issue-form behavior have been exercised for
 the tested actor/repository; the specific scope and limits are recorded in
-[acceptance](acceptance.md). Scheduled-event acceptance remains open until a genuine
-post-activation timer event completes.
+[acceptance](acceptance.md). The scheduled-event evidence and Codespaces runtime
+acceptance are recorded above.
 
 ## Resume from committed tools
 
