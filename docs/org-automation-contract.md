@@ -29,8 +29,9 @@ The Safe-Settings App is the repository-settings writer. Its installed selection
 permissions are separate from the versioned manifest and its generated allowlist.
 The App installation selects all repositories, with Repository Administration write,
 Contents read, Checks write, and Metadata read. The manifest and generated allowlist
-bound current reconciliation to the five declared repositories: `admin`, `.github`,
-`repository-template`, `baseline-canary`, and `bootstrap-acceptance-20261030`. It does not own organization policy, team membership, repository
+bound current reconciliation to the six declared repositories: `admin`, `.github`,
+`repository-template`, `baseline-canary`, `bootstrap-acceptance-20261030`, and `android`.
+It does not own organization policy, team membership, repository
 creation, or App installation changes. The authenticated owner CLI controller in
 `scripts/organization.py` remains the writer for the explicitly declared organization
 and team fields; there is no competing organization-policy writer.
@@ -145,8 +146,11 @@ declared operating boundaries, not hidden enforcement claims.
 ## Current gates
 
 The authenticated preview, initial apply, and zero-write second apply are recorded in
-`docs/reconciliation-evidence-2026-10-30.md`; later evidence covers all five declared
-repositories and zero-write idempotence. The live canary functional suite is tracked
+`docs/reconciliation-evidence-2026-10-30.md`; later evidence records five-repository
+scheduled drift repair and zero-write idempotence. After Android adoption, [run 41561843117](https://github.com/Samwise-OS/admin/actions/runs/41561843117)
+independently matched all six declared repositories. The [November 3 scheduled run](https://github.com/Samwise-OS/admin/actions/runs/41653620878)
+completed successfully against the later main revision. Its successful workflow outcome
+is recorded separately from the earlier six-repository readback evidence. The live canary functional suite is tracked
 separately in `docs/acceptance.md`. The owner account has 2FA enabled, current members
 have no 2FA-disabled accounts, and there are no outside collaborators. The desired
 organization 2FA requirement is declared true and live readback matches. The
