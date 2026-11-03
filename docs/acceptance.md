@@ -1,7 +1,7 @@
 # Operational acceptance
 
-Status: **PASS for the previously accepted five-repository scope; the newly created
-`Samwise-OS/android` repository is pending adopted-ruleset readback, CI and canary acceptance.**
+Status: **PASS for six-repository managed configuration readback; functional
+Android branch-protection canary and on-device execution-gate acceptance are pending.**
 The five-repository configuration apply and independent readback pass. Fresh repository
 provisioning is created, adopted, protected and independently reconciled across the
 five-repository managed scope. Repository CI acceptance are recorded. Deliberate canary
@@ -53,3 +53,14 @@ cleanup proof, complete the recorded acceptance gate. Known limits remain explic
 fork-based contribution, personal recovery-code inspection, organization-owned
 Codespaces controls, and all possible failure modes were not tested. An alternate
 same-App workflow can emit the required check name; this trust boundary is documented.
+
+## Android repository adoption evidence — 2026-11-02
+
+The sixth managed repository (`Samwise-OS/android`, ID `1443683343`) passed
+independent full managed-scope readback after reconciliation run
+[41561843117](https://github.com/Samwise-OS/admin/actions/runs/41561843117).
+Its managed ruleset, immutable identity and repository defaults all matched. The
+provisioned baseline PR [#1](https://github.com/Samwise-OS/android/pull/1)
+passed the actual required `baseline / standards` check and merged normally.
+Separate functional enforcement rejection and real-device execution acceptance
+remain pending; neither is implied by successful configuration readback.

@@ -139,3 +139,23 @@ administration manifest, CI status, exact-head checks and functional branch
 protection remain separately gated until independent readback and acceptance.
 No Motorola device write, Wi-Fi toggle, APK installation or Android command
 was performed in this repository bootstrap.
+
+## Android governance reconciliation — 2026-11-02
+
+[Admin adoption PR #12](https://github.com/Samwise-OS/admin/pull/12) merged through
+its required `governance` check at `7d9c90836a13267186962cdbb42f4ba220136725`.
+Preview [41561714891](https://github.com/Samwise-OS/admin/actions/runs/41561714891)
+reported zero writes and only Android drift: missing named ruleset plus four
+repository-settings differences. The preview writer receipt passed; the independent
+state audit reported drift, not acceptance. Apply
+[41561843117](https://github.com/Samwise-OS/admin/actions/runs/41561843117)
+completed successfully with two managed config mutation requests, zero unclassified
+writes and zero trace errors. Its independently downloaded managed-state receipt
+reported `match` for all six repositories and `android` identity, settings and named
+active ruleset. [Android standards PR #1](https://github.com/Samwise-OS/android/pull/1)
+passed `baseline / standards` and merged normally to
+`c04af07cf61420539f8282c04114132fe65442ec` without administrative bypass.
+
+Android default-branch rejection tests and the future Android execution-policy gate
+remain unaccepted. All operations in this section affected GitHub repository state;
+no Motorola USB, Android settings, Android package or Wi-Fi changes occurred.
