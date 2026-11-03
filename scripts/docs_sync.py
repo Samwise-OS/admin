@@ -117,16 +117,17 @@ def render(root=ROOT):
         f"- Scheduled activation declaration: {q}"
         f"{value_text(organization['safe_settings']['schedule_enabled'])}{q}",
         "",
-        "## Source fingerprints",
+        "## Canonical source blob identities",
         "",
-        "Any change to an authoritative declaration source changes its SHA-256",
+        "Any change to an authoritative declaration source changes its Git blob ID",
         "fingerprint, requiring this generated page to be updated in the same PR.",
         "",
-        "| Canonical source | SHA-256 |",
+        "| Canonical source | Git blob SHA-1 |",
         "| --- | --- |",
     ])
     for name in SOURCES:
-        digest = hashlib.sha256(sources[name]).hexdigest()
+        data = sources[name]
+        digest = hashlib.sha1(b"blob " + str(len(data)).encode("ascii") + b"\x00" + data).hexdigest()
         lines.append(f"| {q}{name}{q} | {q}{digest}{q} |")
     lines.extend(["", "Regenerate with: " + q + "python3 scripts/docs_sync.py --write" + q, ""])
     return "\n".join(lines)
