@@ -29,6 +29,10 @@ def value_text(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=False).replace("|", r"\|")
 
 
+def inline_text(value):
+    return str(value).replace("|", chr(92) + "|")
+
+
 def render(root=ROOT):
     sources = read_sources(root)
     organization = json.loads(sources["config/organization.json"])
@@ -75,7 +79,7 @@ def render(root=ROOT):
     for item in sorted(repositories, key=lambda entry: entry["name"]):
         lines.append(
             f"| {q}{item['name']}{q} | {item['id']} | "
-            f"{str(item.get('description', '')).replace('|', r'\|')} |"
+            f"{inline_text(item.get('description', ''))} |"
         )
     lines.extend(["", f"**Declared managed repository count:** {len(names)}", ""])
 
