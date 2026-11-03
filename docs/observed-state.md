@@ -120,3 +120,22 @@ remains open: the prior create succeeded but remote shell failed during sshd Fea
 setup. PR10 pins the official Feature by digest; the live fix still requires rollout to
 the template repository's `main`. No organization-owned Codespaces budget or policy is
 claimed on GitHub Free.
+
+## Android repository bootstrap — 2026-11-02
+
+The existing authenticated `scripts/provision.py` ran on the GTX 1660 with
+trusted administration workflow commit `6b857ed60ac09708c68535fc769756e3a92a7d21`.
+Its preview identified one new repository and four standards workflow source-pin
+proposals; the subsequent bounded apply created `Samwise-OS/android` with immutable
+GitHub repository ID `1443683343`. The generated content proposal is
+[android PR #1](https://github.com/Samwise-OS/android/pull/1), head
+`208bc1d97dc1255e2b1a6b898c68db5754342bba`. Four other standard-content
+PRs are pending: `.github#3`, `repository-template#3`, `baseline-canary#9`,
+and `bootstrap-acceptance-20261030#2`; none were merged by provisioning.
+
+The new repository's labels were reconciled and private vulnerability reporting
+read back enabled. Its branch ruleset, adopted repository identity in the
+administration manifest, CI status, exact-head checks and functional branch
+protection remain separately gated until independent readback and acceptance.
+No Motorola device write, Wi-Fi toggle, APK installation or Android command
+was performed in this repository bootstrap.
