@@ -3,6 +3,7 @@
     "include": [
       ".github",
       "admin",
+      "android",
       "baseline-canary",
       "bootstrap-acceptance-20261030",
       "repository-template"

@@ -1,7 +1,7 @@
 # Operational acceptance
 
-Status: **PASS for all scoped acceptance criteria, within the tested actor, repository,
-GitHub Free and runtime boundaries below.**
+Status: **PASS for the previously accepted five-repository scope; the newly created
+`Samwise-OS/android` repository is pending adopted-ruleset readback, CI and canary acceptance.**
 The five-repository configuration apply and independent readback pass. Fresh repository
 provisioning is created, adopted, protected and independently reconciled across the
 five-repository managed scope. Repository CI acceptance are recorded. Deliberate canary
