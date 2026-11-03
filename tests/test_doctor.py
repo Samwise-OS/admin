@@ -40,6 +40,7 @@ class DoctorCliTests(unittest.TestCase):
             subprocess.CompletedProcess([], 0, "Configuration valid.\n", ""),
             subprocess.CompletedProcess([], 0, "Generated settings current.\n", ""),
             subprocess.CompletedProcess([], 0, "Safe-Settings config valid.\n", ""),
+            subprocess.CompletedProcess([], 0, "Documentation declaration parity: PASS\n", ""),
             subprocess.CompletedProcess([], 0, "Ran 25 tests in 0.9s\n\nOK\n", ""),
         ]
         code, receipt = self.run_doctor(responses)
@@ -50,7 +51,7 @@ class DoctorCliTests(unittest.TestCase):
         self.assertFalse(receipt["worktree_dirty"])
         self.assertEqual("pass", receipt["outcome"])
         self.assertEqual(
-            ["configuration", "repository_settings", "safe_settings", "unit_tests"],
+            ["configuration", "repository_settings", "safe_settings", "documentation_parity", "unit_tests"],
             [check["name"] for check in receipt["checks"]],
         )
         self.assertEqual(
@@ -65,31 +66,34 @@ class DoctorCliTests(unittest.TestCase):
             subprocess.CompletedProcess([], 0, "Configuration valid.\n", ""),
             subprocess.CompletedProcess([], 0, "Generated settings current.\n", ""),
             subprocess.CompletedProcess([], 0, "Safe-Settings config valid.\n", ""),
+            subprocess.CompletedProcess([], 0, "Documentation declaration parity: PASS\n", ""),
             subprocess.CompletedProcess([], 0, "Ran 25 tests in 0.9s\n\nOK (skipped=1)\n", ""),
         ]
         code, receipt = self.run_doctor(responses)
         self.assertEqual(2, code)
         self.assertEqual("unknown", receipt["outcome"])
-        self.assertEqual("unknown", receipt["checks"][3]["status"])
-        self.assertIn("skipped", receipt["checks"][3]["reason"])
+        self.assertEqual("unknown", receipt["checks"][4]["status"])
+        self.assertIn("skipped", receipt["checks"][4]["reason"])
 
     def test_zero_test_run_is_unknown_even_when_unittest_exits_zero(self):
         responses = [
             subprocess.CompletedProcess([], 0, "Configuration valid.\n", ""),
             subprocess.CompletedProcess([], 0, "Generated settings current.\n", ""),
             subprocess.CompletedProcess([], 0, "Safe-Settings config valid.\n", ""),
+            subprocess.CompletedProcess([], 0, "Documentation declaration parity: PASS\n", ""),
             subprocess.CompletedProcess([], 0, "Ran 0 tests in 0.0s\n\nOK\n", ""),
         ]
         code, receipt = self.run_doctor(responses)
         self.assertEqual(2, code)
         self.assertEqual("unknown", receipt["outcome"])
-        self.assertIn("zero tests", receipt["checks"][3]["reason"])
+        self.assertIn("zero tests", receipt["checks"][4]["reason"])
 
     def test_failed_check_still_writes_receipt_and_returns_failure(self):
         responses = [
             subprocess.CompletedProcess([], 1, "configuration invalid\n", ""),
             subprocess.CompletedProcess([], 0, "Generated settings current.\n", ""),
             subprocess.CompletedProcess([], 0, "Safe-Settings config valid.\n", ""),
+            subprocess.CompletedProcess([], 0, "Documentation declaration parity: PASS\n", ""),
             subprocess.CompletedProcess([], 0, "Ran 25 tests in 0.9s\n\nOK\n", ""),
         ]
         code, receipt = self.run_doctor(responses)
@@ -103,19 +107,37 @@ class DoctorCliTests(unittest.TestCase):
             subprocess.CompletedProcess([], 0, "Configuration valid.\n", ""),
             subprocess.CompletedProcess([], 0, "Generated settings current.\n", ""),
             subprocess.CompletedProcess([], 0, "Safe-Settings config valid.\n", ""),
+            subprocess.CompletedProcess([], 0, "Documentation declaration parity: PASS\n", ""),
             subprocess.CompletedProcess([], 1, "", "test failure traceback\n"),
         ]
         code, receipt = self.run_doctor(responses)
         self.assertEqual(1, code)
         self.assertEqual("fail", receipt["outcome"])
+        self.assertEqual("fail", receipt["checks"][4]["status"])
+        self.assertIn("exited with code 1", receipt["checks"][4]["reason"])
+
+    def test_stale_documentation_hard_blocks_acceptance(self):
+        responses = [
+            subprocess.CompletedProcess([], 0, "Configuration valid.\n", ""),
+            subprocess.CompletedProcess([], 0, "Generated settings current.\n", ""),
+            subprocess.CompletedProcess([], 0, "Safe-Settings config valid.\n", ""),
+            subprocess.CompletedProcess([], 1, "", "Documentation declaration parity: FAIL\n"),
+            subprocess.CompletedProcess([], 0, "Ran 30 tests in 0.9s\n\nOK\n", ""),
+        ]
+        code, receipt = self.run_doctor(responses)
+        self.assertEqual(1, code)
+        self.assertEqual("fail", receipt["outcome"])
+        self.assertEqual("documentation_parity", receipt["checks"][3]["name"])
         self.assertEqual("fail", receipt["checks"][3]["status"])
-        self.assertIn("exited with code 1", receipt["checks"][3]["reason"])
+        self.assertTrue((ROOT / receipt["checks"][3]["evidence_path"]).is_file())
+
 
     def test_pull_request_receipt_separates_source_and_checkout_sha(self):
         responses = [
             subprocess.CompletedProcess([], 0, "Configuration valid.\n", ""),
             subprocess.CompletedProcess([], 0, "Generated settings current.\n", ""),
             subprocess.CompletedProcess([], 0, "Safe-Settings config valid.\n", ""),
+            subprocess.CompletedProcess([], 0, "Documentation declaration parity: PASS\n", ""),
             subprocess.CompletedProcess([], 0, "Ran 25 tests in 0.9s\n\nOK\n", ""),
         ]
         code, receipt = self.run_doctor(responses, {

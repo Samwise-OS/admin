@@ -14,11 +14,12 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 LOCAL = ROOT / ".local"
 TIMEOUT_SECONDS = 60
-CHECK_VERSION = "2026-10-30.2"
+CHECK_VERSION = "2026-11-03.1"
 CHECKS = (
     ("configuration", [sys.executable, "scripts/audit.py", "validate"]),
     ("repository_settings", [sys.executable, "scripts/generate_repository_settings.py", "--check"]),
     ("safe_settings", [sys.executable, "scripts/validate_safe_settings.py"]),
+    ("documentation_parity", [sys.executable, "scripts/docs_sync.py", "--check"]),
     ("unit_tests", [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"]),
 )
 

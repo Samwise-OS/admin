@@ -19,7 +19,7 @@
 | Safe-Settings reconciliation and readback | [`reconcile.yml`](.github/workflows/reconcile.yml) |
 | Reusable repository standards check | [`repository-baseline.yml`](.github/workflows/repository-baseline.yml) |
 
-The managed scope is `admin`, `.github`, `repository-template`, `baseline-canary`, `bootstrap-acceptance-20261030`, and `android`. New repositories are declared and adopted through the existing manifest/provisioning process.
+The current managed scope is derived from the manifests in the [generated declared-governance reference](docs/generated/declared-governance.md). New repositories are declared and adopted through the existing manifest/provisioning process.
 
 ## Validate the declared baseline
 
@@ -29,10 +29,11 @@ From this repository's root, with Python 3.11+:
 python3 scripts/audit.py validate
 python3 scripts/generate_repository_settings.py --check
 python3 scripts/validate_safe_settings.py
+python3 scripts/docs_sync.py --check
 python3 scripts/doctor.py --output .local/validation-receipt.json
 ```
 
-These are secretless declaration checks. Authenticated GitHub readback, operational reconciliation, and functional enforcement have separate procedures and evidence.
+These are secretless declaration checks. To regenerate deterministic declared-state documentation after a manifest or reconciliation workflow change, run `python3 scripts/docs_sync.py --write` and commit the generated diff. The `documentation_parity` check is part of the existing required `governance` workflow and records its outcome in the validation receipt. Authenticated GitHub readback, operational reconciliation, and functional enforcement have separate procedures and evidence.
 
 ## Operating documentation
 
