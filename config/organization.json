@@ -4,7 +4,7 @@
   "organization_id": 349008063,
   "admin_repository": "admin",
   "admin_repository_id": 1436238530,
-  "state": "policy-applied-2fa-enforced-schedule-acceptance-pending",
+  "state": "policy-applied-2fa-enforced-android-device-gate-pending",
   "organization_settings": {
     "default_repository_permission": "none",
     "two_factor_requirement_enabled": true,
@@ -63,10 +63,10 @@
       "metadata": "read"
     },
     "last_nop_run": 41008940440,
-    "last_apply_run": 41011894264,
+    "last_apply_run": 41561843117,
     "schedule_enabled": true
   },
   "owner_decisions_pending": [
-    "Wait for a scheduled event after the activation change reaches main and verify credentialed reconciliation plus independent readback; then remove the temporary five-minute acceptance cadence"
+    "Qualify Android branch-protection enforcement with live negative tests and independently accept the host execution gate before any Moto device write"
   ]
 }
