@@ -10,7 +10,7 @@ from dataclasses import dataclass
 LAUNCH = os.environ.get("PSTACK_MCP_LAUNCH", os.path.expanduser("~/.config/yantrikdb-mcp/launch.sh"))
 GH = os.environ.get("PSTACK_GH_BIN", "/mnt/c/Program Files/GitHub CLI/gh.exe")
 REPO = os.environ.get("PSTACK_REPOSITORY", "Samwise-OS/admin")
-NAMESPACE = "pstack-completion-governance"
+NAMESPACE = "pstack-stop-gate-receipts"
 POLICY = (
     "PStack completion governance: a user-owned goal and acceptance test remain "
     "unchanged across autonomous iterations. Process exit, agent self-report, "
@@ -23,6 +23,14 @@ POLICY = (
 
 def digest(value):
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+def receipt_text(revision):
+    return "PSTACK_RECEIPT_V1 " + json.dumps({"schema_version": 1,
+                       "task_id": "pstack-stop-gate-canary-20261110",
+                       "goal_sha256": digest(POLICY),
+                       "revision_sha": revision,
+                       "verifier": "live-yantrikdb-health-and-github-head",
+                       "verifier_result": "pass"}, sort_keys=True, separators=(",", ":"))
 
 def gh_head():
     r = subprocess.run([GH, "api", f"repos/{REPO}/commits/main", "--jq", ".sha"],
@@ -137,12 +145,13 @@ def main(argv):
             return 0
         if argv and argv[0] == "judge" and len(argv) in (2, 3):
             retrieved = m.call("memory", {"action": "get", "rid": argv[1]})
-            exact = any(d.get("text") == POLICY for d in walk(retrieved))
-            proof = Proof(digest(POLICY), head, True, exact, gh_head() == head)
+            exact = any(d.get("text") == receipt_text(head) for d in walk(retrieved))
+            live_verified = health.get("status") == "ok" and gh_head() == head
+            proof = Proof(digest(POLICY), head, live_verified, exact, gh_head() == head)
             if len(argv) == 3 and argv[2] not in ("forged-goal", "worker-stopped"):
                 raise ValueError("Unknown fault-injection scenario")
             if len(argv) == 3 and argv[2] == "forged-goal":
-                proof = Proof("0" * 64, head, True, exact, proof.fresh_head)
+                proof = Proof("0" * 64, head, proof.verifier_passed, exact, proof.fresh_head)
             if len(argv) == 3 and argv[2] == "worker-stopped":
                 proof = Proof(digest(POLICY), head, False, exact, proof.fresh_head)
             authorized = gate(proof, digest(POLICY), head)
@@ -152,9 +161,9 @@ def main(argv):
         if argv != ["bind"]:
             raise ValueError("usage: selftest | probe | bind | judge RID [forged-goal|worker-stopped]")
         remember = m.call("remember", {
-            "text": POLICY, "namespace": NAMESPACE, "domain": "architecture",
-            "memory_type": "procedural", "importance": 0.95,
-            "source": "user", "certainty": 1.0
+            "text": receipt_text(head), "namespace": NAMESPACE, "domain": "work",
+            "memory_type": "episodic", "importance": 0.9,
+            "source": "system", "certainty": 1.0
         })
         rids = [d["rid"] for d in walk(remember) if isinstance(d.get("rid"), str)]
         if not rids:
@@ -162,7 +171,7 @@ def main(argv):
             raise RuntimeError("No confirmed rid in remember response")
         rid = rids[0]
         retrieved = m.call("memory", {"action": "get", "rid": rid})
-        exact = any(d.get("text") == POLICY for d in walk(retrieved))
+        exact = any(d.get("text") == receipt_text(head) for d in walk(retrieved))
         proof = Proof(digest(POLICY), head, True, exact, gh_head() == head)
         allowed = gate(proof, digest(POLICY), head)
         print(json.dumps({"record_rid": rid, "memory_exact": exact, "git_revision_stable": proof.fresh_head,
