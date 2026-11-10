@@ -1,7 +1,7 @@
 """Deterministic admission tests for the memory-bound stop canary."""
 import unittest
 
-from scripts.pstack_stop_gate_canary import POLICY, Proof, digest, gate
+from scripts.pstack_stop_gate_canary import POLICY, Proof, digest, gate, receipt_text
 
 
 class PStackStopGateCanaryTests(unittest.TestCase):
@@ -9,6 +9,12 @@ class PStackStopGateCanaryTests(unittest.TestCase):
         self.goal = digest(POLICY)
         self.sha = "a" * 40
         self.good = Proof(self.goal, self.sha, True, True, True)
+
+    def test_receipt_binds_exact_revision(self):
+        self.assertNotEqual(receipt_text("a" * 40), receipt_text("b" * 40))
+
+    def test_receipt_binds_goal_digest(self):
+        self.assertIn(digest(POLICY), receipt_text(self.sha))
 
     def test_exact_verified_proof_admits(self):
         self.assertTrue(gate(self.good, self.goal, self.sha))
